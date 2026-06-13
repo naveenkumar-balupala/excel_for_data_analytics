@@ -33,6 +33,15 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // ---- usns ----  (USN uniqueness index, doc id = USN)
+    // Read-by-id lets a signed-in user check if a USN is taken during
+    // registration without listing the private students collection.
+    match /usns/{usn} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
     // ---- questions ----
     // Any signed-in user may read questions (the client grades the test).
     // NOTE: Firestore rules cannot strip the `correctAnswer` field, so a

@@ -4,23 +4,23 @@ import {
   doc,
   getDoc,
   getDocs,
-  query,
   setDoc,
-  where,
   serverTimestamp,
 } from 'firebase/firestore'
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth'
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut,
+  deleteUser,
+} from 'firebase/auth'
 import { auth, db } from '../firebase/config'
 
-// Returns true if a student with this USN already exists.
-export async function usnExists(usn) {
-  const q = query(collection(db, 'students'), where('usn', '==', usn.trim().toUpperCase()))
-  const snap = await getDocs(q)
-  return !snap.empty
-}
-
-// Register a new student: creates a Firebase Auth user + a students/{uid} doc.
-// Throws on duplicate USN/email or weak password.
+// Register a new student.
+// Order matters for security rules: we create the Auth account FIRST (which
+// also enforces unique email), so the user is signed in before we touch
+// Firestore. Duplicate USN is then checked with a single-document read on the
+// `usns` index collection (doc id = USN) — collection queries are not allowed
+// for non-admins, so a read-by-id is the rules-friendly approach.
 export async function registerStudent({
   name,
   usn,
@@ -32,25 +32,37 @@ export async function registerStudent({
 }) {
   const normalizedUsn = usn.trim().toUpperCase()
 
-  // Duplicate USN check (email duplicates are caught by Firebase Auth).
-  if (await usnExists(normalizedUsn)) {
-    throw new Error('A student with this USN is already registered.')
-  }
-
+  // 1. Create the auth account (throws auth/email-already-in-use on dup email).
   const cred = await createUserWithEmailAndPassword(auth, email.trim(), password)
   const uid = cred.user.uid
 
-  await setDoc(doc(db, 'students', uid), {
-    name: name.trim(),
-    usn: normalizedUsn,
-    email: email.trim().toLowerCase(),
-    phone: phone.trim(),
-    branch: branch.trim(),
-    section: section.trim().toUpperCase(),
-    role: 'student',
-    createdAt: serverTimestamp(),
-  })
+  try {
+    // 2. Duplicate-USN check via single-doc read.
+    const usnRef = doc(db, 'usns', normalizedUsn)
+    if ((await getDoc(usnRef)).exists()) {
+      throw new Error('A student with this USN is already registered.')
+    }
 
+    // 3. Write the profile and claim the USN.
+    await setDoc(doc(db, 'students', uid), {
+      name: name.trim(),
+      usn: normalizedUsn,
+      email: email.trim().toLowerCase(),
+      phone: phone.trim(),
+      branch: branch.trim(),
+      section: section.trim().toUpperCase(),
+      role: 'student',
+      createdAt: serverTimestamp(),
+    })
+    await setDoc(usnRef, { uid, usn: normalizedUsn, createdAt: serverTimestamp() })
+  } catch (err) {
+    // Roll back the half-created auth user so the email can be reused on retry.
+    try { await deleteUser(cred.user) } catch (_) { /* ignore */ }
+    throw err
+  }
+
+  // 4. Sign out so the student explicitly logs in (per the spec flow).
+  await signOut(auth)
   return uid
 }
 

@@ -33,6 +33,7 @@ export default function Profile() {
         {field('Phone', profile?.phone)}
         {field('Branch', profile?.branch)}
         {field('Section', profile?.section)}
+        {field('Batch', profile?.batch)}
       </div>
 
       <h2 className="mb-3 mt-8 text-lg font-semibold text-slate-800">Test History</h2>

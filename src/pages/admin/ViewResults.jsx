@@ -11,6 +11,7 @@ export default function ViewResults() {
   const [testType, setTestType] = useState('All')
   const [branch, setBranch] = useState('All')
   const [section, setSection] = useState('All')
+  const [batch, setBatch] = useState('All')
   const [minScore, setMinScore] = useState('')
   const [maxScore, setMaxScore] = useState('')
 
@@ -24,6 +25,7 @@ export default function ViewResults() {
   const testTypes = ['All', ...new Set(attempts.map((a) => a.testType).filter(Boolean))]
   const branches = ['All', ...new Set(attempts.map((a) => a.branch).filter(Boolean))]
   const sections = ['All', ...new Set(attempts.map((a) => a.section).filter(Boolean))]
+  const batches = ['All', ...new Set(attempts.map((a) => a.batch).filter(Boolean))]
 
   const filtered = useMemo(() => attempts.filter((a) => {
     const q = search.toLowerCase()
@@ -31,14 +33,15 @@ export default function ViewResults() {
     const matchType = testType === 'All' || a.testType === testType
     const matchBranch = branch === 'All' || a.branch === branch
     const matchSection = section === 'All' || a.section === section
+    const matchBatch = batch === 'All' || a.batch === batch
     const p = a.percentage ?? 0
     const matchMin = minScore === '' || p >= Number(minScore)
     const matchMax = maxScore === '' || p <= Number(maxScore)
-    return matchSearch && matchType && matchBranch && matchSection && matchMin && matchMax
-  }), [attempts, search, testType, branch, section, minScore, maxScore])
+    return matchSearch && matchType && matchBranch && matchSection && matchBatch && matchMin && matchMax
+  }), [attempts, search, testType, branch, section, batch, minScore, maxScore])
 
   const rows = filtered.map((a) => ({
-    Name: a.studentName, USN: a.usn, Branch: a.branch, Section: a.section,
+    Name: a.studentName, USN: a.usn, Branch: a.branch, Section: a.section, Batch: a.batch || '',
     Test: a.testTitle, Type: a.testType, Score: a.score, Percentage: a.percentage, Status: a.status,
   }))
 
@@ -54,7 +57,7 @@ export default function ViewResults() {
         </div>
       </div>
 
-      <div className="card mb-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="card mb-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-7">
         <input className="input" placeholder="Search name / USN" value={search} onChange={(e) => setSearch(e.target.value)} />
         <select className="input" value={testType} onChange={(e) => setTestType(e.target.value)}>
           {testTypes.map((t) => <option key={t}>{t}</option>)}
@@ -65,6 +68,9 @@ export default function ViewResults() {
         <select className="input" value={section} onChange={(e) => setSection(e.target.value)}>
           {sections.map((s) => <option key={s}>{s}</option>)}
         </select>
+        <select className="input" value={batch} onChange={(e) => setBatch(e.target.value)}>
+          {batches.map((b) => <option key={b}>{b}</option>)}
+        </select>
         <input className="input" type="number" placeholder="Min %" value={minScore} onChange={(e) => setMinScore(e.target.value)} />
         <input className="input" type="number" placeholder="Max %" value={maxScore} onChange={(e) => setMaxScore(e.target.value)} />
       </div>
@@ -73,7 +79,7 @@ export default function ViewResults() {
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-slate-500">
-              <th className="py-2">Name</th><th>USN</th><th>Branch</th><th>Sec</th><th>Test</th><th>Score</th><th>%</th><th>Status</th>
+              <th className="py-2">Name</th><th>USN</th><th>Branch</th><th>Sec</th><th>Batch</th><th>Test</th><th>Score</th><th>%</th><th>Status</th>
             </tr>
           </thead>
           <tbody>
@@ -83,6 +89,7 @@ export default function ViewResults() {
                 <td>{a.usn}</td>
                 <td>{a.branch}</td>
                 <td>{a.section}</td>
+                <td>{a.batch || '—'}</td>
                 <td className="text-slate-500">{a.testTitle}</td>
                 <td>{a.score}</td>
                 <td className="font-semibold">{a.percentage}%</td>
@@ -94,7 +101,7 @@ export default function ViewResults() {
               </tr>
             ))}
             {filtered.length === 0 && (
-              <tr><td colSpan={8} className="py-6 text-center text-slate-400">No results match the filters.</td></tr>
+              <tr><td colSpan={9} className="py-6 text-center text-slate-400">No results match the filters.</td></tr>
             )}
           </tbody>
         </table>

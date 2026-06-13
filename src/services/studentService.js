@@ -1,10 +1,13 @@
 // Student registration / profile Firestore logic.
 import {
   collection,
+  deleteDoc,
   doc,
   getDoc,
   getDocs,
+  query,
   setDoc,
+  where,
   serverTimestamp,
 } from 'firebase/firestore'
 import {
@@ -28,6 +31,7 @@ export async function registerStudent({
   phone,
   branch,
   section,
+  batch,
   password,
 }) {
   const normalizedUsn = usn.trim().toUpperCase()
@@ -51,6 +55,7 @@ export async function registerStudent({
       phone: phone.trim(),
       branch: branch.trim(),
       section: section.trim().toUpperCase(),
+      batch: (batch || '').trim(),
       role: 'student',
       createdAt: serverTimestamp(),
     })
@@ -78,4 +83,23 @@ export async function getStudent(uid) {
 export async function getAllStudents() {
   const snap = await getDocs(collection(db, 'students'))
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+}
+
+// Admin: delete a student and all their data (USN claim, attempts, results).
+// NOTE: this removes Firestore data only. The Firebase Authentication login
+// record can't be deleted from the browser (needs the Admin SDK); remove it
+// from Firebase Console -> Authentication -> Users if required.
+export async function deleteStudent(student) {
+  const deletes = []
+
+  const aSnap = await getDocs(query(collection(db, 'attempts'), where('studentId', '==', student.id)))
+  aSnap.forEach((d) => deletes.push(deleteDoc(doc(db, 'attempts', d.id))))
+
+  const rSnap = await getDocs(query(collection(db, 'results'), where('studentId', '==', student.id)))
+  rSnap.forEach((d) => deletes.push(deleteDoc(doc(db, 'results', d.id))))
+
+  await Promise.all(deletes)
+
+  if (student.usn) await deleteDoc(doc(db, 'usns', student.usn))
+  await deleteDoc(doc(db, 'students', student.id))
 }

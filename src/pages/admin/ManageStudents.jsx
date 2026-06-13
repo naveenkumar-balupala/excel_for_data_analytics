@@ -1,24 +1,36 @@
 import { useEffect, useMemo, useState } from 'react'
-import { getAllStudents } from '../../services/studentService'
+import { getAllStudents, deleteStudent } from '../../services/studentService'
 import { getAllAttempts } from '../../services/attemptService'
+import { createBatch, deleteBatch, getAllBatches } from '../../services/batchService'
 import { exportToCSV, exportToExcel } from '../../utils/export'
 import Loader from '../../components/Loader'
+import Alert from '../../components/Alert'
+import ConfirmModal from '../../components/ConfirmModal'
 
 export default function ManageStudents() {
   const [students, setStudents] = useState([])
   const [attempts, setAttempts] = useState([])
+  const [batches, setBatches] = useState([])
   const [loading, setLoading] = useState(true)
+  const [msg, setMsg] = useState({ type: '', text: '' })
+
+  const [newBatch, setNewBatch] = useState('')
+  const [deleteBatchId, setDeleteBatchId] = useState(null)
+  const [deleteTarget, setDeleteTarget] = useState(null) // student to delete
+
   const [search, setSearch] = useState('')
   const [branch, setBranch] = useState('All')
   const [section, setSection] = useState('All')
+  const [batchFilter, setBatchFilter] = useState('All')
 
-  useEffect(() => {
-    Promise.all([getAllStudents(), getAllAttempts()]).then(([s, a]) => {
-      setStudents(s)
-      setAttempts(a)
-      setLoading(false)
-    })
-  }, [])
+  const load = async () => {
+    const [s, a, b] = await Promise.all([getAllStudents(), getAllAttempts(), getAllBatches()])
+    setStudents(s)
+    setAttempts(a)
+    setBatches(b)
+    setLoading(false)
+  }
+  useEffect(() => { load() }, [])
 
   const attemptCount = useMemo(() => {
     const map = {}
@@ -28,6 +40,7 @@ export default function ManageStudents() {
 
   const branches = ['All', ...new Set(students.map((s) => s.branch).filter(Boolean))]
   const sections = ['All', ...new Set(students.map((s) => s.section).filter(Boolean))]
+  const batchOptions = ['All', ...new Set(students.map((s) => s.batch).filter(Boolean))]
 
   const filtered = students.filter((s) => {
     const q = search.toLowerCase()
@@ -38,13 +51,49 @@ export default function ManageStudents() {
       s.email?.toLowerCase().includes(q)
     const matchBranch = branch === 'All' || s.branch === branch
     const matchSection = section === 'All' || s.section === section
-    return matchSearch && matchBranch && matchSection
+    const matchBatch = batchFilter === 'All' || s.batch === batchFilter
+    return matchSearch && matchBranch && matchSection && matchBatch
   })
 
   const rows = filtered.map((s) => ({
     Name: s.name, USN: s.usn, Email: s.email, Phone: s.phone,
-    Branch: s.branch, Section: s.section, TestsAttempted: attemptCount[s.id] || 0,
+    Branch: s.branch, Section: s.section, Batch: s.batch || '',
+    TestsAttempted: attemptCount[s.id] || 0,
   }))
+
+  // ---- batch actions ----
+  const handleAddBatch = async (e) => {
+    e.preventDefault()
+    if (!newBatch.trim()) return
+    try {
+      await createBatch(newBatch)
+      setNewBatch('')
+      setMsg({ type: 'success', text: 'Batch created.' })
+      load()
+    } catch (err) {
+      setMsg({ type: 'error', text: err.message })
+    }
+  }
+  const confirmDeleteBatch = async () => {
+    await deleteBatch(deleteBatchId)
+    setDeleteBatchId(null)
+    setMsg({ type: 'success', text: 'Batch deleted.' })
+    load()
+  }
+
+  // ---- student delete ----
+  const confirmDeleteStudent = async () => {
+    const target = deleteTarget
+    setDeleteTarget(null)
+    setMsg({ type: 'info', text: `Deleting ${target.name}…` })
+    try {
+      await deleteStudent(target)
+      setMsg({ type: 'success', text: `${target.name} and their results were deleted.` })
+      load()
+    } catch (err) {
+      setMsg({ type: 'error', text: err.message })
+    }
+  }
 
   if (loading) return <Loader />
 
@@ -58,7 +107,29 @@ export default function ManageStudents() {
         </div>
       </div>
 
-      <div className="card mb-4 grid gap-3 sm:grid-cols-3">
+      {msg.text && <div className="mb-4"><Alert type={msg.type}>{msg.text}</Alert></div>}
+
+      {/* ---- Batch management ---- */}
+      <div className="card mb-4">
+        <h2 className="font-semibold text-slate-800">Batches</h2>
+        <p className="text-xs text-slate-500">Create batches (e.g. 2024-2027). Students choose one at registration.</p>
+        <form onSubmit={handleAddBatch} className="mt-3 flex gap-2">
+          <input className="input max-w-xs" placeholder="New batch name e.g. 2024-2027" value={newBatch} onChange={(e) => setNewBatch(e.target.value)} />
+          <button className="btn-primary">Add Batch</button>
+        </form>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {batches.length === 0 && <span className="text-sm text-slate-400">No batches yet.</span>}
+          {batches.map((b) => (
+            <span key={b.id} className="badge flex items-center gap-2 bg-brand/10 text-brand">
+              {b.name}
+              <button className="text-brand-dark hover:text-red-600" onClick={() => setDeleteBatchId(b.id)} title="Delete batch">✕</button>
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* ---- Filters ---- */}
+      <div className="card mb-4 grid gap-3 sm:grid-cols-4">
         <input className="input" placeholder="Search name / USN / email" value={search} onChange={(e) => setSearch(e.target.value)} />
         <select className="input" value={branch} onChange={(e) => setBranch(e.target.value)}>
           {branches.map((b) => <option key={b}>{b}</option>)}
@@ -66,13 +137,17 @@ export default function ManageStudents() {
         <select className="input" value={section} onChange={(e) => setSection(e.target.value)}>
           {sections.map((s) => <option key={s}>{s}</option>)}
         </select>
+        <select className="input" value={batchFilter} onChange={(e) => setBatchFilter(e.target.value)}>
+          {batchOptions.map((b) => <option key={b}>{b}</option>)}
+        </select>
       </div>
 
+      {/* ---- Student table ---- */}
       <div className="card overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-slate-500">
-              <th className="py-2">Name</th><th>USN</th><th>Email</th><th>Branch</th><th>Section</th><th>Attempts</th>
+              <th className="py-2">Name</th><th>USN</th><th>Email</th><th>Branch</th><th>Section</th><th>Batch</th><th>Attempts</th><th>Action</th>
             </tr>
           </thead>
           <tbody>
@@ -83,15 +158,39 @@ export default function ManageStudents() {
                 <td className="text-slate-500">{s.email}</td>
                 <td>{s.branch}</td>
                 <td>{s.section}</td>
+                <td>{s.batch || '—'}</td>
                 <td><span className="badge bg-brand/10 text-brand">{attemptCount[s.id] || 0}</span></td>
+                <td>
+                  <button className="btn-danger" onClick={() => setDeleteTarget(s)}>Delete</button>
+                </td>
               </tr>
             ))}
             {filtered.length === 0 && (
-              <tr><td colSpan={6} className="py-6 text-center text-slate-400">No students match the filters.</td></tr>
+              <tr><td colSpan={8} className="py-6 text-center text-slate-400">No students match the filters.</td></tr>
             )}
           </tbody>
         </table>
       </div>
+
+      <ConfirmModal
+        open={!!deleteTarget}
+        title="Delete Student?"
+        message={deleteTarget ? `This permanently removes ${deleteTarget.name} (${deleteTarget.usn}) and all their test attempts & results. The login account must be removed separately from Firebase Authentication. Continue?` : ''}
+        confirmText="Delete Student"
+        danger
+        onConfirm={confirmDeleteStudent}
+        onCancel={() => setDeleteTarget(null)}
+      />
+
+      <ConfirmModal
+        open={!!deleteBatchId}
+        title="Delete Batch?"
+        message="This removes the batch from the list. Students already assigned to it keep their batch value."
+        confirmText="Delete"
+        danger
+        onConfirm={confirmDeleteBatch}
+        onCancel={() => setDeleteBatchId(null)}
+      />
     </div>
   )
 }

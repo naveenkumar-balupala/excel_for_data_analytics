@@ -58,6 +58,13 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // ---- batches ----
+    // Anyone signed in (or registering) can read the batch list; admin manages.
+    match /batches/{batchId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     // ---- attempts ----
     // Doc id is `${studentId}_${testId}` (see attemptService.js). Access is
     // gated on the studentId FIELD so that list queries (where studentId == me)

@@ -1,19 +1,31 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { registerStudent } from '../../services/studentService'
+import { getAllBatches } from '../../services/batchService'
 import Alert from '../../components/Alert'
 
-const BRANCHES = ['CSE', 'ISE', 'ECE', 'EEE', 'MECH', 'CIVIL', 'AIML', 'Other']
+const BRANCHES = ['CSE', 'ISE', 'ECE', 'EEE', 'MECH', 'CIVIL', 'AIML', 'BCA', 'MCA', 'MBA', 'Other']
 const SECTIONS = ['A', 'B', 'C', 'D']
 
 export default function Register() {
   const navigate = useNavigate()
   const [form, setForm] = useState({
-    name: '', usn: '', email: '', phone: '', branch: 'CSE', section: 'A', password: '', confirm: '',
+    name: '', usn: '', email: '', phone: '', branch: 'CSE', section: 'A', batch: '', password: '', confirm: '',
   })
+  const [batches, setBatches] = useState([])
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(false)
+
+  // Load the admin-defined batch list so students pick from it.
+  useEffect(() => {
+    getAllBatches()
+      .then((b) => {
+        setBatches(b)
+        if (b.length) setForm((f) => ({ ...f, batch: b[0].name }))
+      })
+      .catch(() => setBatches([]))
+  }, [])
 
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value })
 
@@ -22,6 +34,7 @@ export default function Register() {
     if (!/^[A-Za-z0-9]+$/.test(form.usn.trim())) return 'Enter a valid USN / Roll number.'
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.email)) return 'Enter a valid email address.'
     if (!/^\d{10}$/.test(form.phone.trim())) return 'Phone number must be 10 digits.'
+    if (!form.batch.trim()) return 'Please select or enter your batch.'
     if (form.password.length < 6) return 'Password must be at least 6 characters.'
     if (form.password !== form.confirm) return 'Passwords do not match.'
     return ''
@@ -86,6 +99,16 @@ export default function Register() {
             <select className="input" value={form.section} onChange={set('section')}>
               {SECTIONS.map((s) => <option key={s}>{s}</option>)}
             </select>
+          </div>
+          <div className="sm:col-span-2">
+            <label className="label">Batch</label>
+            {batches.length > 0 ? (
+              <select className="input" value={form.batch} onChange={set('batch')}>
+                {batches.map((b) => <option key={b.id} value={b.name}>{b.name}</option>)}
+              </select>
+            ) : (
+              <input className="input" value={form.batch} onChange={set('batch')} placeholder="e.g. 2024-2027" />
+            )}
           </div>
           <div>
             <label className="label">Password</label>

@@ -98,7 +98,22 @@ The app never writes admin docs (by design). Create one manually:
 
 ---
 
-## 🌐 Deploy to GitHub Pages
+## 🤖 Automatic deployment (GitHub Actions) — recommended
+
+This repo includes [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml), which builds and publishes the site to GitHub Pages **automatically on every push to `main`**. One-time setup:
+
+1. **Add your Firebase config as repository secrets** (so real keys are never committed):
+   Repo → **Settings → Secrets and variables → Actions → New repository secret**, add each:
+   `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`,
+   `VITE_FIREBASE_STORAGE_BUCKET`, `VITE_FIREBASE_MESSAGING_SENDER_ID`, `VITE_FIREBASE_APP_ID`.
+2. **Enable Pages via Actions:** Repo → **Settings → Pages → Build and deployment → Source = GitHub Actions**.
+3. **Push** (or click *Run workflow* on the Actions tab). The site deploys to
+   `https://naveenkumar-balupala.github.io/excel_for_data_analytics/`.
+4. **Authorize the domain** in Firebase → Authentication → Settings → Authorized domains → add `naveenkumar-balupala.github.io`.
+
+> The `base` in [`vite.config.js`](vite.config.js) must stay `'/excel_for_data_analytics/'` (matches the repo name). Watch progress on the repo's **Actions** tab.
+
+## 🌐 Manual deploy to GitHub Pages (alternative)
 
 1. Create a GitHub repo, e.g. `excel-assessment-platform`, and push this project.
 2. In [`package.json`](package.json) set `homepage` to

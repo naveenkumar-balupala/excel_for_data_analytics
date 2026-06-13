@@ -1,0 +1,115 @@
+import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { buildDashboard } from '../../services/statsService'
+import Loader from '../../components/Loader'
+import StatCard from '../../components/StatCard'
+import Alert from '../../components/Alert'
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, Cell,
+} from 'recharts'
+
+export default function AdminDashboard() {
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    buildDashboard()
+      .then(setData)
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false))
+  }, [])
+
+  if (loading) return <Loader message="Building dashboard…" />
+  if (error) return <Alert type="error">{error}</Alert>
+
+  const { cards, testWise, topicWise } = data
+  const topPerformers = [...data.attempts].sort((a, b) => b.percentage - a.percentage).slice(0, 5)
+  const needHelp = [...data.attempts].filter((a) => a.status !== 'Pass').slice(0, 5)
+
+  return (
+    <div>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold text-slate-800">Admin Dashboard</h1>
+        <div className="flex gap-2">
+          <Link to="/admin/statistics" className="btn-secondary">Full Statistics</Link>
+          <Link to="/admin/export" className="btn-primary">Export Reports</Link>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <StatCard label="Total Students" value={cards.totalStudents} accent="blue" />
+        <StatCard label="Total Tests" value={cards.totalTests} accent="slate" />
+        <StatCard label="Total Attempts" value={cards.totalAttempts} accent="brand" />
+        <StatCard label="Average Score" value={cards.averageScore} suffix="%" accent="brand" />
+        <StatCard label="Highest Score" value={cards.highestScore} suffix="%" accent="green" />
+        <StatCard label="Lowest Score" value={cards.lowestScore} suffix="%" accent="red" />
+        <StatCard label="Pass %" value={cards.passPercentage} suffix="%" accent="green" />
+        <StatCard label="Not Attempted" value={cards.notAttemptedCount} accent="slate" />
+      </div>
+
+      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+        <div className="card">
+          <h3 className="mb-3 font-semibold text-slate-800">Test-wise Average Score (%)</h3>
+          <ResponsiveContainer width="100%" height={280}>
+            <BarChart data={testWise}>
+              <XAxis dataKey="name" tick={{ fontSize: 10 }} interval={0} angle={-15} height={60} />
+              <YAxis domain={[0, 100]} />
+              <Tooltip />
+              <Bar dataKey="avgScore" fill="#ea580c" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div className="card">
+          <h3 className="mb-3 font-semibold text-slate-800">Weakest Topics (lowest accuracy)</h3>
+          <ResponsiveContainer width="100%" height={280}>
+            <BarChart data={topicWise.slice(0, 8)} layout="vertical" margin={{ left: 20 }}>
+              <XAxis type="number" domain={[0, 100]} />
+              <YAxis type="category" dataKey="topic" width={130} tick={{ fontSize: 11 }} />
+              <Tooltip />
+              <Bar dataKey="accuracy" radius={[0, 4, 4, 0]}>
+                {topicWise.slice(0, 8).map((d, i) => (
+                  <Cell key={i} fill={d.accuracy >= 50 ? '#16a34a' : '#dc2626'} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+        <MiniTable title="🏆 Top Performers" rows={topPerformers} empty="No attempts yet." />
+        <MiniTable title="📘 Students Needing Improvement" rows={needHelp} empty="Everyone is passing!" />
+      </div>
+    </div>
+  )
+}
+
+function MiniTable({ title, rows, empty }) {
+  return (
+    <div className="card">
+      <h3 className="mb-3 font-semibold text-slate-800">{title}</h3>
+      {rows.length === 0 ? (
+        <p className="text-sm text-slate-500">{empty}</p>
+      ) : (
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left text-slate-500">
+              <th className="py-1">Name</th><th>Test</th><th>%</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.id} className="border-t border-slate-100">
+                <td className="py-1.5">{r.studentName}</td>
+                <td className="text-slate-500">{r.testTitle}</td>
+                <td className="font-semibold">{r.percentage}%</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  )
+}

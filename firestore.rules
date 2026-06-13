@@ -1,0 +1,78 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---- Helpers ----
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function isAdmin() {
+      return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+    function isSelf(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+    // True only after an admin has released results for the given test.
+    function testReleased(testId) {
+      return get(/databases/$(database)/documents/tests/$(testId)).data.resultsReleased == true;
+    }
+
+    // ---- admins ----
+    // A user can read their own admin doc (used for the role check on login).
+    // Admin docs are created manually from the Firebase console (see README).
+    match /admins/{adminId} {
+      allow read: if isSelf(adminId) || isAdmin();
+      allow write: if false; // never writable from the client
+    }
+
+    // ---- students ----
+    // A student creates and reads their own profile; admins can read everyone.
+    match /students/{studentId} {
+      allow create: if isSelf(studentId);
+      allow read, update: if isSelf(studentId) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ---- questions ----
+    // Any signed-in user may read questions (the client grades the test).
+    // NOTE: Firestore rules cannot strip the `correctAnswer` field, so a
+    // determined user could inspect it. For exam-grade secrecy, move grading
+    // to a Cloud Function and store answers server-side. See README.
+    match /questions/{questionId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // ---- tests ----
+    match /tests/{testId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // ---- attempts ----
+    // Doc id is `${studentId}_${testId}` (see attemptService.js), so a student
+    // can only create the attempt that matches their own uid, and only once.
+    match /attempts/{attemptId} {
+      allow read: if isAdmin()
+        || (isSignedIn() && attemptId.split('_')[0] == request.auth.uid);
+      // create only if it is the student's own attempt and it does not exist yet
+      allow create: if isSignedIn()
+        && attemptId.split('_')[0] == request.auth.uid;
+      // block edits/deletes -> enforces the single, immutable attempt
+      allow update, delete: if isAdmin();
+    }
+
+    // ---- results ----
+    // A student may read their OWN result only after the admin releases results
+    // for that test (resultId = "{studentId}_{testId}"). Admins always can.
+    match /results/{resultId} {
+      allow read: if isAdmin()
+        || (isSignedIn()
+            && resultId.split('_')[0] == request.auth.uid
+            && testReleased(resultId.split('_')[1]));
+      allow create: if isSignedIn()
+        && resultId.split('_')[0] == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+  }
+}

@@ -59,28 +59,33 @@ service cloud.firestore {
     }
 
     // ---- attempts ----
-    // Doc id is `${studentId}_${testId}` (see attemptService.js), so a student
-    // can only create the attempt that matches their own uid, and only once.
+    // Doc id is `${studentId}_${testId}` (see attemptService.js). Access is
+    // gated on the studentId FIELD so that list queries (where studentId == me)
+    // are authorized; ID-based rules can't authorize list queries. `resource ==
+    // null` allows the "has this been attempted?" get on a not-yet-created doc.
     match /attempts/{attemptId} {
       allow read: if isAdmin()
-        || (isSignedIn() && attemptId.split('_')[0] == request.auth.uid);
-      // create only if it is the student's own attempt and it does not exist yet
+        || (isSignedIn()
+            && (resource == null || resource.data.studentId == request.auth.uid));
+      // create only the student's own attempt; the deterministic id + the
+      // update/delete block below keep it to a single, immutable attempt.
       allow create: if isSignedIn()
-        && attemptId.split('_')[0] == request.auth.uid;
-      // block edits/deletes -> enforces the single, immutable attempt
+        && request.resource.data.studentId == request.auth.uid;
       allow update, delete: if isAdmin();
     }
 
     // ---- results ----
     // A student may read their OWN result only after the admin releases results
-    // for that test (resultId = "{studentId}_{testId}"). Admins always can.
+    // for that test. Admins always can.
     match /results/{resultId} {
       allow read: if isAdmin()
-        || (isSignedIn()
-            && resultId.split('_')[0] == request.auth.uid
-            && testReleased(resultId.split('_')[1]));
+        || (isSignedIn() && (
+              resource == null
+              || (resource.data.studentId == request.auth.uid
+                  && testReleased(resource.data.testId))
+           ));
       allow create: if isSignedIn()
-        && resultId.split('_')[0] == request.auth.uid;
+        && request.resource.data.studentId == request.auth.uid;
       allow update, delete: if isAdmin();
     }
   }

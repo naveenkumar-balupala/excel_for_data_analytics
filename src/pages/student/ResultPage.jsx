@@ -21,17 +21,23 @@ export default function ResultPage() {
 
   useEffect(() => {
     if (!profile) return
-    Promise.all([getResult(profile.id, testId), getTest(testId)]).then(([r, t]) => {
-      setResult(r)
-      setTest(t)
-      setLoading(false)
-    })
+    // Fetch the test first. Only read the (rules-protected) result doc once the
+    // admin has released results — otherwise the read is denied by design.
+    getTest(testId)
+      .then((t) => {
+        setTest(t)
+        if (t && t.resultsReleased) {
+          return getResult(profile.id, testId).then(setResult)
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false))
   }, [profile, testId])
 
   if (loading) return <Loader message="Loading your result…" />
 
   // Gate: results stay hidden until the admin releases them for this test.
-  if (result && test && !test.resultsReleased)
+  if (test && !test.resultsReleased)
     return (
       <div className="mx-auto max-w-xl card text-center">
         <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-amber-100 text-2xl">🔒</div>

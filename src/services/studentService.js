@@ -86,9 +86,25 @@ export async function getAllStudents() {
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
 }
 
-// Admin: update a student's editable profile fields.
+// Admin: update a student's editable profile fields, and propagate the
+// denormalized copies (name/branch/section/batch) stored on their attempts and
+// results so statistics and result tables reflect the change immediately.
 export async function updateStudent(id, data) {
-  return updateDoc(doc(db, 'students', id), data)
+  await updateDoc(doc(db, 'students', id), data)
+
+  const patch = {}
+  if ('name' in data) patch.studentName = data.name
+  if ('branch' in data) patch.branch = data.branch
+  if ('section' in data) patch.section = data.section
+  if ('batch' in data) patch.batch = data.batch
+  if (Object.keys(patch).length === 0) return
+
+  const updates = []
+  const aSnap = await getDocs(query(collection(db, 'attempts'), where('studentId', '==', id)))
+  aSnap.forEach((d) => updates.push(updateDoc(doc(db, 'attempts', d.id), patch)))
+  const rSnap = await getDocs(query(collection(db, 'results'), where('studentId', '==', id)))
+  rSnap.forEach((d) => updates.push(updateDoc(doc(db, 'results', d.id), patch)))
+  await Promise.all(updates)
 }
 
 // Admin: delete a student and all their data (USN claim, attempts, results).

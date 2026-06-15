@@ -35,3 +35,18 @@
     @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
   }
 }
+
+/* Print styles — used by the Statistics "Print / Save PDF" button. */
+@media print {
+  .no-print { display: none !important; }
+  .print-only { display: block !important; }
+  body { background: #ffffff; }
+  .card {
+    box-shadow: none;
+    border-color: #e2e8f0;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  main { max-width: 100% !important; padding: 0 !important; }
+  @page { margin: 12mm; }
+}

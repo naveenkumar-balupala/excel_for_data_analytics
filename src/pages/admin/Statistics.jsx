@@ -1,18 +1,18 @@
-import { useEffect, useState } from 'react'
-import { buildDashboard } from '../../services/statsService'
+import { useEffect, useMemo, useState } from 'react'
+import { buildDashboard, computeStats } from '../../services/statsService'
 import Loader from '../../components/Loader'
 import Alert from '../../components/Alert'
+import StatCard from '../../components/StatCard'
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
   Legend, Cell, PieChart, Pie, LabelList,
 } from 'recharts'
 
-// Small helper: render the value above/beside a series.
+const COLORS = ['#dc2626', '#f59e0b', '#3b82f6', '#16a34a']
+
 const valueLabel = (position = 'top') => (
   <LabelList position={position} className="fill-slate-600" style={{ fontSize: 11, fontWeight: 600 }} />
 )
-
-const COLORS = ['#dc2626', '#f59e0b', '#3b82f6', '#16a34a']
 
 function ChartCard({ title, children, note }) {
   return (
@@ -25,21 +25,84 @@ function ChartCard({ title, children, note }) {
 }
 
 export default function Statistics() {
-  const [data, setData] = useState(null)
+  const [raw, setRaw] = useState(null)
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [batch, setBatch] = useState('All')
+  const [testId, setTestId] = useState('All')
 
-  useEffect(() => {
-    buildDashboard().then(setData).catch((e) => setError(e.message))
-  }, [])
+  const reload = () => {
+    setLoading(true)
+    buildDashboard()
+      .then(setRaw)
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false))
+  }
+  useEffect(() => { reload() }, [])
+
+  // Recompute metrics for the selected batch / test filter.
+  const data = useMemo(() => {
+    if (!raw) return null
+    const inBatch = (x) => batch === 'All' || (x.batch || 'Unknown') === batch
+    const inTest = (x) => testId === 'All' || x.testId === testId
+    return computeStats({
+      students: batch === 'All' ? raw.students : raw.students.filter((s) => (s.batch || 'Unknown') === batch),
+      tests: testId === 'All' ? raw.tests : raw.tests.filter((t) => t.id === testId),
+      attempts: raw.attempts.filter((a) => inBatch(a) && inTest(a)),
+      results: raw.results.filter((r) => inBatch(r) && inTest(r)),
+    })
+  }, [raw, batch, testId])
 
   if (error) return <Alert type="error">{error}</Alert>
-  if (!data) return <Loader message="Crunching statistics…" />
+  if (loading || !data) return <Loader message="Crunching statistics…" />
 
-  const { testWise, sectionWise, branchWise, topicWise, dayWise, grandBuckets } = data
+  const { cards, testWise, sectionWise, branchWise, batchWise, topicWise, dayWise, grandBuckets } = data
+  const batchOptions = ['All', ...new Set(raw.students.map((s) => s.batch || 'Unknown').filter(Boolean))]
+  const activeTest = testId === 'All' ? 'All Tests' : (raw.tests.find((t) => t.id === testId)?.testTitle || 'Test')
 
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-bold text-slate-800">Statistics & Reports</h1>
+      {/* ---- Toolbar (hidden when printing) ---- */}
+      <div className="no-print mb-4 flex flex-wrap items-end justify-between gap-3">
+        <h1 className="text-2xl font-bold text-slate-800">Statistics &amp; Reports</h1>
+        <div className="flex flex-wrap items-end gap-3">
+          <div>
+            <label className="label">Batch</label>
+            <select className="input" value={batch} onChange={(e) => setBatch(e.target.value)}>
+              {batchOptions.map((b) => <option key={b}>{b}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="label">Test</label>
+            <select className="input" value={testId} onChange={(e) => setTestId(e.target.value)}>
+              <option value="All">All Tests</option>
+              {raw.tests.map((t) => <option key={t.id} value={t.id}>{t.testTitle}</option>)}
+            </select>
+          </div>
+          <button className="btn-secondary" onClick={reload}>↻ Refresh</button>
+          <button className="btn-primary" onClick={() => window.print()}>🖨 Print / Save PDF</button>
+        </div>
+      </div>
+
+      {/* ---- Printed report header (only visible when printing) ---- */}
+      <div className="print-only mb-4 hidden">
+        <h1 className="text-2xl font-bold text-slate-800">Assessment Statistics Report</h1>
+        <p className="text-sm text-slate-600">
+          Batch: <b>{batch}</b> · Test: <b>{activeTest}</b>
+        </p>
+      </div>
+
+      {/* ---- Summary cards ---- */}
+      <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <StatCard label="Students" value={cards.totalStudents} accent="blue" />
+        <StatCard label="Attempts" value={cards.totalAttempts} accent="brand" />
+        <StatCard label="Average Score" value={cards.averageScore} suffix="%" accent="brand" />
+        <StatCard label="Pass %" value={cards.passPercentage} suffix="%" accent="green" />
+        <StatCard label="Highest" value={cards.highestScore} suffix="%" accent="green" />
+        <StatCard label="Lowest" value={cards.lowestScore} suffix="%" accent="red" />
+        <StatCard label="Tests" value={cards.totalTests} accent="slate" />
+        <StatCard label="Not Attempted" value={cards.notAttemptedCount} accent="slate" />
+      </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <ChartCard title="Test-wise Performance (avg %)">
@@ -49,6 +112,15 @@ export default function Statistics() {
             <Tooltip /><Legend />
             <Bar dataKey="avgScore" name="Avg %" fill="#ea580c" radius={[4, 4, 0, 0]}>{valueLabel()}</Bar>
             <Bar dataKey="attempts" name="Attempts" fill="#94a3b8" radius={[4, 4, 0, 0]}>{valueLabel()}</Bar>
+          </BarChart>
+        </ChartCard>
+
+        <ChartCard title="Batch-wise Performance (avg %)">
+          <BarChart data={batchWise}>
+            <XAxis dataKey="name" /><YAxis domain={[0, 100]} />
+            <Tooltip /><Legend />
+            <Bar dataKey="avgScore" name="Avg %" fill="#0ea5e9" radius={[4, 4, 0, 0]}>{valueLabel()}</Bar>
+            <Bar dataKey="passRate" name="Pass %" fill="#16a34a" radius={[4, 4, 0, 0]}>{valueLabel()}</Bar>
           </BarChart>
         </ChartCard>
 
@@ -123,6 +195,9 @@ export default function Statistics() {
                 </td>
               </tr>
             ))}
+            {topicWise.length === 0 && (
+              <tr><td colSpan={4} className="py-6 text-center text-slate-400">No data for this filter.</td></tr>
+            )}
           </tbody>
         </table>
       </div>

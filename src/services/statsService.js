@@ -7,15 +7,11 @@ import { getAllAttempts, getAllResults } from './attemptService'
 
 const round2 = (n) => Math.round(n * 100) / 100
 
-export async function buildDashboard() {
-  const [students, tests, attempts, results] = await Promise.all([
-    getAllStudents(),
-    getAllTests(),
-    getAllAttempts(),
-    getAllResults(),
-  ])
-
-  const submitted = attempts.filter((a) => a.attempted)
+// Pure aggregator over a (possibly filtered) data set. The Statistics page
+// passes already-filtered students/tests/attempts/results to view the report
+// batch-wise or test-wise; the dashboard passes the full set.
+export function computeStats({ students = [], tests = [], attempts = [], results = [] }) {
+  const submitted = attempts // caller passes only submitted attempts
   const scores = submitted.map((a) => a.percentage ?? 0)
 
   const cards = {
@@ -39,19 +35,20 @@ export async function buildDashboard() {
     byTest[a.testId].attempts++
     byTest[a.testId].totalPct += a.percentage ?? 0
   }
-  const testWise = Object.values(byTest).map((t) => ({
-    name: t.name,
-    attempts: t.attempts,
-    avgScore: t.attempts ? round2(t.totalPct / t.attempts) : 0,
-  }))
+  const testWise = Object.values(byTest)
+    .filter((t) => t.attempts > 0 || tests.length <= 12)
+    .map((t) => ({
+      name: t.name,
+      attempts: t.attempts,
+      avgScore: t.attempts ? round2(t.totalPct / t.attempts) : 0,
+    }))
 
-  // ---- Section-wise ----
   const sectionWise = groupAvg(submitted, 'section')
-  // ---- Branch-wise ----
   const branchWise = groupAvg(submitted, 'branch')
+  const batchWise = groupAvg(submitted, 'batch')
 
   // ---- Topic-wise (weak areas) from results ----
-  const topicAgg = {} // topic -> { correct, total }
+  const topicAgg = {}
   for (const r of results) {
     const tw = r.topicWisePerformance || {}
     for (const [topic, v] of Object.entries(tw)) {
@@ -67,9 +64,9 @@ export async function buildDashboard() {
       correct: v.correct,
       total: v.total,
     }))
-    .sort((a, b) => a.accuracy - b.accuracy) // weakest first
+    .sort((a, b) => a.accuracy - b.accuracy)
 
-  // ---- Day-wise progress (avg percentage per day number) ----
+  // ---- Day-wise progress ----
   const dayAgg = {}
   for (const a of submitted.filter((x) => x.testType === 'Day-wise Test' && x.dayNumber)) {
     const k = `Day ${a.dayNumber}`
@@ -81,23 +78,23 @@ export async function buildDashboard() {
     .map(([name, v]) => ({ name, avgScore: round2(v.total / v.count) }))
     .sort((a, b) => parseInt(a.name.split(' ')[1]) - parseInt(b.name.split(' ')[1]))
 
-  // ---- Grand test performance distribution ----
+  // ---- Grand test distribution ----
   const grand = submitted.filter((a) => a.testType === 'Grand Test')
   const grandBuckets = scoreBuckets(grand.map((g) => g.percentage ?? 0))
 
-  return {
-    cards,
-    testWise,
-    sectionWise,
-    branchWise,
-    topicWise,
-    dayWise,
-    grandBuckets,
-    students,
-    tests,
-    attempts: submitted,
-    results,
-  }
+  return { cards, testWise, sectionWise, branchWise, batchWise, topicWise, dayWise, grandBuckets }
+}
+
+export async function buildDashboard() {
+  const [students, tests, attempts, results] = await Promise.all([
+    getAllStudents(),
+    getAllTests(),
+    getAllAttempts(),
+    getAllResults(),
+  ])
+  const submitted = attempts.filter((a) => a.attempted)
+  const metrics = computeStats({ students, tests, attempts: submitted, results })
+  return { ...metrics, students, tests, attempts: submitted, results }
 }
 
 function groupAvg(items, key) {

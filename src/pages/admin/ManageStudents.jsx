@@ -28,6 +28,8 @@ export default function ManageStudents() {
   const [branch, setBranch] = useState('All')
   const [section, setSection] = useState('All')
   const [batchFilter, setBatchFilter] = useState('All')
+  const [sortKey, setSortKey] = useState('usn')
+  const [sortDir, setSortDir] = useState('asc')
 
   const load = async () => {
     const [s, a, b] = await Promise.all([getAllStudents(), getAllAttempts(), getAllBatches()])
@@ -61,7 +63,26 @@ export default function ManageStudents() {
     return matchSearch && matchBranch && matchSection && matchBatch
   })
 
-  const rows = filtered.map((s) => ({
+  // Sortable: usn (default), name, branch, section, batch.
+  const sorted = useMemo(() => {
+    const arr = [...filtered]
+    arr.sort((a, b) => {
+      const av = (a[sortKey] ?? '').toString().toLowerCase()
+      const bv = (b[sortKey] ?? '').toString().toLowerCase()
+      const cmp = av.localeCompare(bv, undefined, { numeric: true })
+      return sortDir === 'asc' ? cmp : -cmp
+    })
+    return arr
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [students, search, branch, section, batchFilter, sortKey, sortDir])
+
+  const toggleSort = (key) => {
+    if (sortKey === key) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+    else { setSortKey(key); setSortDir('asc') }
+  }
+  const arrow = (key) => (sortKey === key ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '')
+
+  const rows = sorted.map((s) => ({
     Name: s.name, USN: s.usn, Email: s.email, Phone: s.phone,
     Branch: s.branch, Section: s.section, Batch: s.batch || '',
     TestsAttempted: attemptCount[s.id] || 0,
@@ -182,11 +203,17 @@ export default function ManageStudents() {
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-slate-500">
-              <th className="py-2">Name</th><th>USN</th><th>Email</th><th>Branch</th><th>Section</th><th>Batch</th><th>Attempts</th><th>Action</th>
+              <th className="cursor-pointer py-2 hover:text-slate-800" onClick={() => toggleSort('name')}>Name{arrow('name')}</th>
+              <th className="cursor-pointer hover:text-slate-800" onClick={() => toggleSort('usn')}>USN{arrow('usn')}</th>
+              <th>Email</th>
+              <th className="cursor-pointer hover:text-slate-800" onClick={() => toggleSort('branch')}>Branch{arrow('branch')}</th>
+              <th className="cursor-pointer hover:text-slate-800" onClick={() => toggleSort('section')}>Section{arrow('section')}</th>
+              <th className="cursor-pointer hover:text-slate-800" onClick={() => toggleSort('batch')}>Batch{arrow('batch')}</th>
+              <th>Attempts</th><th>Action</th>
             </tr>
           </thead>
           <tbody>
-            {filtered.map((s) => (
+            {sorted.map((s) => (
               <tr key={s.id} className="border-t border-slate-100">
                 <td className="py-2 font-medium">{s.name}</td>
                 <td>{s.usn}</td>
@@ -203,7 +230,7 @@ export default function ManageStudents() {
                 </td>
               </tr>
             ))}
-            {filtered.length === 0 && (
+            {sorted.length === 0 && (
               <tr><td colSpan={8} className="py-6 text-center text-slate-400">No students match the filters.</td></tr>
             )}
           </tbody>

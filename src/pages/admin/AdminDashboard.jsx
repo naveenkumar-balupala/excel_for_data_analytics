@@ -5,7 +5,7 @@ import Loader from '../../components/Loader'
 import StatCard from '../../components/StatCard'
 import Alert from '../../components/Alert'
 import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, Cell,
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, Cell, LabelList,
 } from 'recharts'
 
 export default function AdminDashboard() {
@@ -26,6 +26,18 @@ export default function AdminDashboard() {
   const { cards, testWise, topicWise } = data
   const topPerformers = [...data.attempts].sort((a, b) => b.percentage - a.percentage).slice(0, 5)
   const needHelp = [...data.attempts].filter((a) => a.status !== 'Pass').slice(0, 5)
+
+  // Batch-wise student count (+ attempts) for the dashboard.
+  const byBatch = {}
+  data.students.forEach((s) => {
+    const k = s.batch || 'Unknown'
+    byBatch[k] = (byBatch[k] || 0) + 1
+  })
+  const batchData = Object.entries(byBatch).map(([name, students]) => ({
+    name,
+    students,
+    attempts: data.batchWise.find((b) => b.name === name)?.attempts || 0,
+  }))
 
   return (
     <div>
@@ -76,6 +88,23 @@ export default function AdminDashboard() {
             </BarChart>
           </ResponsiveContainer>
         </div>
+      </div>
+
+      <div className="mt-6 card">
+        <h3 className="mb-3 font-semibold text-slate-800">Batch-wise Count (students &amp; attempts)</h3>
+        <ResponsiveContainer width="100%" height={280}>
+          <BarChart data={batchData}>
+            <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+            <YAxis allowDecimals={false} />
+            <Tooltip /><Legend />
+            <Bar dataKey="students" name="Students" fill="#0ea5e9" radius={[4, 4, 0, 0]}>
+              <LabelList dataKey="students" position="top" style={{ fontSize: 11, fontWeight: 600 }} />
+            </Bar>
+            <Bar dataKey="attempts" name="Attempts" fill="#ea580c" radius={[4, 4, 0, 0]}>
+              <LabelList dataKey="attempts" position="top" style={{ fontSize: 11, fontWeight: 600 }} />
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">

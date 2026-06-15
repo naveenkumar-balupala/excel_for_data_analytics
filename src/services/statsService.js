@@ -85,6 +85,23 @@ export function computeStats({ students = [], tests = [], attempts = [], results
   return { cards, testWise, sectionWise, branchWise, batchWise, topicWise, dayWise, grandBuckets }
 }
 
+// Overlay each attempt/result with the student's CURRENT profile fields, looked
+// up live by studentId. This guarantees statistics/results always reflect the
+// latest edits even if the denormalized copy on the doc is stale.
+function withCurrentStudent(items, studentsById) {
+  return items.map((x) => {
+    const s = studentsById[x.studentId]
+    if (!s) return x
+    return {
+      ...x,
+      studentName: s.name ?? x.studentName,
+      branch: s.branch ?? x.branch,
+      section: s.section ?? x.section,
+      batch: s.batch ?? x.batch ?? null,
+    }
+  })
+}
+
 export async function buildDashboard() {
   const [students, tests, attempts, results] = await Promise.all([
     getAllStudents(),
@@ -92,9 +109,14 @@ export async function buildDashboard() {
     getAllAttempts(),
     getAllResults(),
   ])
-  const submitted = attempts.filter((a) => a.attempted)
-  const metrics = computeStats({ students, tests, attempts: submitted, results })
-  return { ...metrics, students, tests, attempts: submitted, results }
+  const studentsById = {}
+  students.forEach((s) => (studentsById[s.id] = s))
+
+  const submitted = withCurrentStudent(attempts.filter((a) => a.attempted), studentsById)
+  const liveResults = withCurrentStudent(results, studentsById)
+
+  const metrics = computeStats({ students, tests, attempts: submitted, results: liveResults })
+  return { ...metrics, students, tests, attempts: submitted, results: liveResults }
 }
 
 function groupAvg(items, key) {

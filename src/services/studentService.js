@@ -99,12 +99,18 @@ export async function updateStudent(id, data) {
   if ('batch' in data) patch.batch = data.batch
   if (Object.keys(patch).length === 0) return
 
-  const updates = []
-  const aSnap = await getDocs(query(collection(db, 'attempts'), where('studentId', '==', id)))
-  aSnap.forEach((d) => updates.push(updateDoc(doc(db, 'attempts', d.id), patch)))
-  const rSnap = await getDocs(query(collection(db, 'results'), where('studentId', '==', id)))
-  rSnap.forEach((d) => updates.push(updateDoc(doc(db, 'results', d.id), patch)))
-  await Promise.all(updates)
+  // Best-effort: keep the denormalized copies in sync too. Display already
+  // joins to the live student record, so a failure here is non-fatal.
+  try {
+    const updates = []
+    const aSnap = await getDocs(query(collection(db, 'attempts'), where('studentId', '==', id)))
+    aSnap.forEach((d) => updates.push(updateDoc(doc(db, 'attempts', d.id), patch)))
+    const rSnap = await getDocs(query(collection(db, 'results'), where('studentId', '==', id)))
+    rSnap.forEach((d) => updates.push(updateDoc(doc(db, 'results', d.id), patch)))
+    await Promise.all(updates)
+  } catch (err) {
+    console.warn('Result denormalization sync skipped:', err?.message)
+  }
 }
 
 // Admin: re-propagate every student's CURRENT name/branch/section/batch onto

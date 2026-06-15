@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { getAllAttempts } from '../../services/attemptService'
-import { syncResultsWithStudents } from '../../services/studentService'
+import { getAllStudents, syncResultsWithStudents } from '../../services/studentService'
 import { exportToCSV, exportToExcel } from '../../utils/export'
 import Loader from '../../components/Loader'
 import Alert from '../../components/Alert'
@@ -21,8 +21,19 @@ export default function ViewResults() {
 
   const load = () => {
     setLoading(true)
-    getAllAttempts().then((a) => {
-      setAttempts(a.filter((x) => x.attempted))
+    Promise.all([getAllAttempts(), getAllStudents()]).then(([a, students]) => {
+      // Overlay each attempt with the student's current branch/section/batch.
+      const byId = {}
+      students.forEach((s) => (byId[s.id] = s))
+      const enriched = a
+        .filter((x) => x.attempted)
+        .map((att) => {
+          const s = byId[att.studentId]
+          return s
+            ? { ...att, studentName: s.name ?? att.studentName, branch: s.branch ?? att.branch, section: s.section ?? att.section, batch: s.batch ?? att.batch ?? null }
+            : att
+        })
+      setAttempts(enriched)
       setLoading(false)
     })
   }

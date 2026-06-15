@@ -4,8 +4,13 @@ import Loader from '../../components/Loader'
 import Alert from '../../components/Alert'
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  Legend, Cell, PieChart, Pie,
+  Legend, Cell, PieChart, Pie, LabelList,
 } from 'recharts'
+
+// Small helper: render the value above/beside a series.
+const valueLabel = (position = 'top') => (
+  <LabelList position={position} className="fill-slate-600" style={{ fontSize: 11, fontWeight: 600 }} />
+)
 
 const COLORS = ['#dc2626', '#f59e0b', '#3b82f6', '#16a34a']
 
@@ -42,8 +47,8 @@ export default function Statistics() {
             <XAxis dataKey="name" tick={{ fontSize: 10 }} interval={0} angle={-15} height={60} />
             <YAxis domain={[0, 100]} />
             <Tooltip /><Legend />
-            <Bar dataKey="avgScore" name="Avg %" fill="#ea580c" radius={[4, 4, 0, 0]} />
-            <Bar dataKey="attempts" name="Attempts" fill="#94a3b8" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="avgScore" name="Avg %" fill="#ea580c" radius={[4, 4, 0, 0]}>{valueLabel()}</Bar>
+            <Bar dataKey="attempts" name="Attempts" fill="#94a3b8" radius={[4, 4, 0, 0]}>{valueLabel()}</Bar>
           </BarChart>
         </ChartCard>
 
@@ -51,8 +56,8 @@ export default function Statistics() {
           <BarChart data={sectionWise}>
             <XAxis dataKey="name" /><YAxis domain={[0, 100]} />
             <Tooltip /><Legend />
-            <Bar dataKey="avgScore" name="Avg %" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-            <Bar dataKey="passRate" name="Pass %" fill="#16a34a" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="avgScore" name="Avg %" fill="#3b82f6" radius={[4, 4, 0, 0]}>{valueLabel()}</Bar>
+            <Bar dataKey="passRate" name="Pass %" fill="#16a34a" radius={[4, 4, 0, 0]}>{valueLabel()}</Bar>
           </BarChart>
         </ChartCard>
 
@@ -60,7 +65,7 @@ export default function Statistics() {
           <BarChart data={branchWise}>
             <XAxis dataKey="name" /><YAxis domain={[0, 100]} />
             <Tooltip /><Legend />
-            <Bar dataKey="avgScore" name="Avg %" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="avgScore" name="Avg %" fill="#8b5cf6" radius={[4, 4, 0, 0]}>{valueLabel()}</Bar>
           </BarChart>
         </ChartCard>
 
@@ -68,7 +73,7 @@ export default function Statistics() {
           <LineChart data={dayWise}>
             <XAxis dataKey="name" /><YAxis domain={[0, 100]} />
             <Tooltip />
-            <Line type="monotone" dataKey="avgScore" stroke="#ea580c" strokeWidth={2} />
+            <Line type="monotone" dataKey="avgScore" stroke="#ea580c" strokeWidth={2}>{valueLabel('top')}</Line>
           </LineChart>
         </ChartCard>
 
@@ -90,6 +95,7 @@ export default function Statistics() {
               {topicWise.slice(0, 10).map((d, i) => (
                 <Cell key={i} fill={d.accuracy >= 50 ? '#16a34a' : '#dc2626'} />
               ))}
+              <LabelList dataKey="accuracy" position="right" formatter={(v) => `${v}%`} style={{ fontSize: 11, fontWeight: 600 }} className="fill-slate-600" />
             </Bar>
           </BarChart>
         </ChartCard>

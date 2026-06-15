@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
-import { getAllStudents, deleteStudent } from '../../services/studentService'
+import { getAllStudents, deleteStudent, updateStudent } from '../../services/studentService'
 import { getAllAttempts } from '../../services/attemptService'
 import { createBatch, deleteBatch, getAllBatches } from '../../services/batchService'
 import { exportToCSV, exportToExcel } from '../../utils/export'
 import Loader from '../../components/Loader'
 import Alert from '../../components/Alert'
 import ConfirmModal from '../../components/ConfirmModal'
+
+const BRANCHES = ['CSE', 'ISE', 'ECE', 'EEE', 'MECH', 'CIVIL', 'AIML', 'BCA', 'MCA', 'MBA', 'Other']
+const SECTIONS = ['A', 'B', 'C', 'D']
 
 export default function ManageStudents() {
   const [students, setStudents] = useState([])
@@ -17,6 +20,9 @@ export default function ManageStudents() {
   const [newBatch, setNewBatch] = useState('')
   const [deleteBatchId, setDeleteBatchId] = useState(null)
   const [deleteTarget, setDeleteTarget] = useState(null) // student to delete
+  const [editTarget, setEditTarget] = useState(null) // student being edited
+  const [editForm, setEditForm] = useState({ name: '', phone: '', branch: '', section: '', batch: '' })
+  const [savingEdit, setSavingEdit] = useState(false)
 
   const [search, setSearch] = useState('')
   const [branch, setBranch] = useState('All')
@@ -79,6 +85,35 @@ export default function ManageStudents() {
     setDeleteBatchId(null)
     setMsg({ type: 'success', text: 'Batch deleted.' })
     load()
+  }
+
+  // ---- student edit ----
+  const openEdit = (s) => {
+    setEditTarget(s)
+    setEditForm({
+      name: s.name || '', phone: s.phone || '',
+      branch: s.branch || 'CSE', section: s.section || 'A', batch: s.batch || '',
+    })
+  }
+  const saveEdit = async (e) => {
+    e.preventDefault()
+    setSavingEdit(true)
+    try {
+      await updateStudent(editTarget.id, {
+        name: editForm.name.trim(),
+        phone: editForm.phone.trim(),
+        branch: editForm.branch,
+        section: editForm.section,
+        batch: editForm.batch,
+      })
+      setMsg({ type: 'success', text: 'Student details updated.' })
+      setEditTarget(null)
+      load()
+    } catch (err) {
+      setMsg({ type: 'error', text: err.message })
+    } finally {
+      setSavingEdit(false)
+    }
   }
 
   // ---- student delete ----
@@ -161,7 +196,10 @@ export default function ManageStudents() {
                 <td>{s.batch || '—'}</td>
                 <td><span className="badge bg-brand/10 text-brand">{attemptCount[s.id] || 0}</span></td>
                 <td>
-                  <button className="btn-danger" onClick={() => setDeleteTarget(s)}>Delete</button>
+                  <div className="flex gap-2">
+                    <button className="btn-secondary" onClick={() => openEdit(s)}>Edit</button>
+                    <button className="btn-danger" onClick={() => setDeleteTarget(s)}>Delete</button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -191,6 +229,58 @@ export default function ManageStudents() {
         onConfirm={confirmDeleteBatch}
         onCancel={() => setDeleteBatchId(null)}
       />
+
+      {/* ---- Edit student modal ---- */}
+      {editTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <form onSubmit={saveEdit} className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <h3 className="text-lg font-semibold text-slate-800">Edit Student</h3>
+            <p className="mt-1 text-xs text-slate-500">{editTarget.usn} · {editTarget.email}</p>
+            <p className="mt-1 text-xs text-slate-400">USN and email can't be changed here.</p>
+
+            <div className="mt-4 grid gap-3">
+              <div>
+                <label className="label">Full Name</label>
+                <input className="input" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} />
+              </div>
+              <div>
+                <label className="label">Phone</label>
+                <input className="input" value={editForm.phone} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label">Branch</label>
+                  <select className="input" value={editForm.branch} onChange={(e) => setEditForm({ ...editForm, branch: e.target.value })}>
+                    {BRANCHES.map((b) => <option key={b}>{b}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="label">Section</label>
+                  <select className="input" value={editForm.section} onChange={(e) => setEditForm({ ...editForm, section: e.target.value })}>
+                    {SECTIONS.map((s) => <option key={s}>{s}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="label">Batch</label>
+                {batches.length > 0 ? (
+                  <select className="input" value={editForm.batch} onChange={(e) => setEditForm({ ...editForm, batch: e.target.value })}>
+                    <option value="">— none —</option>
+                    {batches.map((b) => <option key={b.id} value={b.name}>{b.name}</option>)}
+                  </select>
+                ) : (
+                  <input className="input" value={editForm.batch} onChange={(e) => setEditForm({ ...editForm, batch: e.target.value })} />
+                )}
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button type="button" className="btn-secondary" onClick={() => setEditTarget(null)}>Cancel</button>
+              <button className="btn-primary" disabled={savingEdit}>{savingEdit ? 'Saving…' : 'Save Changes'}</button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   )
 }

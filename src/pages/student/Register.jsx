@@ -17,13 +17,10 @@ export default function Register() {
   const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(false)
 
-  // Load the admin-defined batch list so students pick from it.
+  // Load the admin-defined batch list. Students may ONLY pick from these.
   useEffect(() => {
     getAllBatches()
-      .then((b) => {
-        setBatches(b)
-        if (b.length) setForm((f) => ({ ...f, batch: b[0].name }))
-      })
+      .then((b) => setBatches(b))
       .catch(() => setBatches([]))
   }, [])
 
@@ -34,7 +31,7 @@ export default function Register() {
     if (!/^[A-Za-z0-9]+$/.test(form.usn.trim())) return 'Enter a valid USN / Roll number.'
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.email)) return 'Enter a valid email address.'
     if (!/^\d{10}$/.test(form.phone.trim())) return 'Phone number must be 10 digits.'
-    if (!form.batch.trim()) return 'Please select or enter your batch.'
+    if (!form.batch.trim()) return 'Please select your batch.'
     if (form.password.length < 6) return 'Password must be at least 6 characters.'
     if (form.password !== form.confirm) return 'Passwords do not match.'
     return ''
@@ -102,12 +99,14 @@ export default function Register() {
           </div>
           <div className="sm:col-span-2">
             <label className="label">Batch</label>
-            {batches.length > 0 ? (
-              <select className="input" value={form.batch} onChange={set('batch')}>
-                {batches.map((b) => <option key={b.id} value={b.name}>{b.name}</option>)}
-              </select>
-            ) : (
-              <input className="input" value={form.batch} onChange={set('batch')} placeholder="e.g. 2024-2027" />
+            <select className="input" value={form.batch} onChange={set('batch')} disabled={batches.length === 0}>
+              <option value="">{batches.length === 0 ? 'No batches available — contact admin' : 'Select your batch'}</option>
+              {batches.map((b) => <option key={b.id} value={b.name}>{b.name}</option>)}
+            </select>
+            {batches.length === 0 && (
+              <p className="mt-1 text-xs text-amber-600">
+                You can register once your admin has created a batch.
+              </p>
             )}
           </div>
           <div>

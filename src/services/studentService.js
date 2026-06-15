@@ -7,6 +7,7 @@ import {
   getDocs,
   query,
   setDoc,
+  updateDoc,
   where,
   serverTimestamp,
 } from 'firebase/firestore'
@@ -83,6 +84,11 @@ export async function getStudent(uid) {
 export async function getAllStudents() {
   const snap = await getDocs(collection(db, 'students'))
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+}
+
+// Admin: update a student's editable profile fields.
+export async function updateStudent(id, data) {
+  return updateDoc(doc(db, 'students', id), data)
 }
 
 // Admin: delete a student and all their data (USN claim, attempts, results).

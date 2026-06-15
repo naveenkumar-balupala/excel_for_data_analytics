@@ -1,11 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import { getAllAttempts } from '../../services/attemptService'
+import { syncResultsWithStudents } from '../../services/studentService'
 import { exportToCSV, exportToExcel } from '../../utils/export'
 import Loader from '../../components/Loader'
+import Alert from '../../components/Alert'
 
 export default function ViewResults() {
   const [attempts, setAttempts] = useState([])
   const [loading, setLoading] = useState(true)
+  const [syncing, setSyncing] = useState(false)
+  const [msg, setMsg] = useState({ type: '', text: '' })
 
   const [search, setSearch] = useState('')
   const [testType, setTestType] = useState('All')
@@ -15,12 +19,28 @@ export default function ViewResults() {
   const [minScore, setMinScore] = useState('')
   const [maxScore, setMaxScore] = useState('')
 
-  useEffect(() => {
+  const load = () => {
+    setLoading(true)
     getAllAttempts().then((a) => {
       setAttempts(a.filter((x) => x.attempted))
       setLoading(false)
     })
-  }, [])
+  }
+  useEffect(() => { load() }, [])
+
+  const handleSync = async () => {
+    setSyncing(true)
+    setMsg({ type: 'info', text: 'Syncing results with current student details…' })
+    try {
+      const n = await syncResultsWithStudents()
+      setMsg({ type: 'success', text: `Synced ${n} records with current student data.` })
+      load()
+    } catch (err) {
+      setMsg({ type: 'error', text: err.message })
+    } finally {
+      setSyncing(false)
+    }
+  }
 
   const testTypes = ['All', ...new Set(attempts.map((a) => a.testType).filter(Boolean))]
   const branches = ['All', ...new Set(attempts.map((a) => a.branch).filter(Boolean))]
@@ -51,11 +71,17 @@ export default function ViewResults() {
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-slate-800">Results ({filtered.length})</h1>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <button className="btn-secondary" onClick={load}>↻ Refresh</button>
+          <button className="btn-secondary" onClick={handleSync} disabled={syncing}>
+            {syncing ? 'Syncing…' : 'Sync with student data'}
+          </button>
           <button className="btn-secondary" onClick={() => exportToCSV(rows, 'results.csv')}>Export CSV</button>
           <button className="btn-primary" onClick={() => exportToExcel(rows, 'results.xlsx', 'Results')}>Export Excel</button>
         </div>
       </div>
+
+      {msg.text && <div className="mb-4"><Alert type={msg.type}>{msg.text}</Alert></div>}
 
       <div className="card mb-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-7">
         <input className="input" placeholder="Search name / USN" value={search} onChange={(e) => setSearch(e.target.value)} />

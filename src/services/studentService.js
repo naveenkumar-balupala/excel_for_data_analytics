@@ -107,6 +107,37 @@ export async function updateStudent(id, data) {
   await Promise.all(updates)
 }
 
+// Admin: re-propagate every student's CURRENT name/branch/section/batch onto
+// all their attempts and results. Fixes historical drift for students that
+// were edited before per-edit cascading existed. Returns docs updated.
+export async function syncResultsWithStudents() {
+  const students = await getAllStudents()
+  const sMap = {}
+  students.forEach((s) => (sMap[s.id] = s))
+
+  const updates = []
+  const patchFrom = (s) => ({
+    studentName: s.name ?? '',
+    branch: s.branch ?? '',
+    section: s.section ?? '',
+    batch: s.batch ?? null,
+  })
+
+  const aSnap = await getDocs(collection(db, 'attempts'))
+  aSnap.forEach((d) => {
+    const s = sMap[d.data().studentId]
+    if (s) updates.push(updateDoc(doc(db, 'attempts', d.id), patchFrom(s)))
+  })
+  const rSnap = await getDocs(collection(db, 'results'))
+  rSnap.forEach((d) => {
+    const s = sMap[d.data().studentId]
+    if (s) updates.push(updateDoc(doc(db, 'results', d.id), patchFrom(s)))
+  })
+
+  await Promise.all(updates)
+  return updates.length
+}
+
 // Admin: delete a student and all their data (USN claim, attempts, results).
 // NOTE: this removes Firestore data only. The Firebase Authentication login
 // record can't be deleted from the browser (needs the Admin SDK); remove it

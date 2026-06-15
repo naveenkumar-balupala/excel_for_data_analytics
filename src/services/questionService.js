@@ -48,6 +48,32 @@ export async function getQuestionsForTest(testType, dayNumber = null) {
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
 }
 
+// A normalized identity for a question, used to detect duplicates and to make
+// seeding idempotent. Same testType + day + question text => same question.
+export function questionKey(q) {
+  return `${q.testType}||${q.dayNumber ?? ''}||${(q.questionText || '').trim().toLowerCase()}`
+}
+
+// Remove duplicate questions, keeping the first of each identical set.
+// Returns the number of duplicates deleted.
+export async function removeDuplicateQuestions() {
+  const all = await getAllQuestions()
+  const seen = new Set()
+  const dupes = []
+  for (const q of all) {
+    const key = questionKey(q)
+    if (seen.has(key)) dupes.push(q.id)
+    else seen.add(key)
+  }
+  // Delete in batches of 400 (Firestore batch limit is 500).
+  for (let i = 0; i < dupes.length; i += 400) {
+    const batch = writeBatch(db)
+    dupes.slice(i, i + 400).forEach((id) => batch.delete(doc(db, COL, id)))
+    await batch.commit()
+  }
+  return dupes.length
+}
+
 // Bulk insert (used by the sample-data seeder).
 export async function bulkAddQuestions(questions) {
   const batch = writeBatch(db)

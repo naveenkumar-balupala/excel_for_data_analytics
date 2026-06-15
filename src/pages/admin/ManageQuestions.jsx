@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   addQuestion, bulkAddQuestions, deleteQuestion, getAllQuestions, updateQuestion,
+  removeDuplicateQuestions, questionKey,
 } from '../../services/questionService'
 import { sampleQuestions } from '../../utils/seedData'
 import Loader from '../../components/Loader'
@@ -48,16 +49,46 @@ export default function ManageQuestions() {
 
   const resetForm = () => { setForm(emptyForm); setEditId(null) }
 
+  // Idempotent seed: only add sample questions that aren't already present, so
+  // clicking more than once never creates duplicates.
   const handleSeed = async () => {
-    setMsg({ type: 'info', text: 'Seeding sample questions…' })
+    const have = new Set(questions.map(questionKey))
+    const missing = sampleQuestions.filter((s) => !have.has(questionKey(s)))
+    if (missing.length === 0) {
+      setMsg({ type: 'info', text: 'All sample questions are already present — nothing to add.' })
+      return
+    }
+    setMsg({ type: 'info', text: `Adding ${missing.length} new sample questions…` })
     try {
-      await bulkAddQuestions(sampleQuestions)
-      setMsg({ type: 'success', text: `Added ${sampleQuestions.length} sample questions.` })
+      await bulkAddQuestions(missing)
+      setMsg({ type: 'success', text: `Added ${missing.length} new sample questions.` })
       load()
     } catch (e) {
       setMsg({ type: 'error', text: e.message })
     }
   }
+
+  const handleRemoveDuplicates = async () => {
+    setMsg({ type: 'info', text: 'Scanning for duplicate questions…' })
+    try {
+      const n = await removeDuplicateQuestions()
+      setMsg({ type: n ? 'success' : 'info', text: n ? `Removed ${n} duplicate question(s).` : 'No duplicates found.' })
+      load()
+    } catch (e) {
+      setMsg({ type: 'error', text: e.message })
+    }
+  }
+
+  // Count of questions available per test, against the required 30.
+  const counts = useMemo(() => {
+    const c = { 'Pre-Assessment': 0, 'Grand Test': 0, days: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 } }
+    questions.forEach((qn) => {
+      if (qn.testType === 'Pre-Assessment') c['Pre-Assessment']++
+      else if (qn.testType === 'Grand Test') c['Grand Test']++
+      else if (qn.testType === 'Day-wise Test' && qn.dayNumber) c.days[qn.dayNumber] = (c.days[qn.dayNumber] || 0) + 1
+    })
+    return c
+  }, [questions])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -119,10 +150,28 @@ export default function ManageQuestions() {
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-slate-800">Manage Questions ({questions.length})</h1>
-        <button className="btn-secondary" onClick={handleSeed}>+ Add Sample Syllabus Questions</button>
+        <div className="flex flex-wrap gap-2">
+          <button className="btn-secondary" onClick={handleSeed}>+ Add Sample Syllabus Questions</button>
+          <button className="btn-secondary" onClick={handleRemoveDuplicates}>Remove Duplicates</button>
+        </div>
       </div>
 
       {msg.text && <div className="mb-4"><Alert type={msg.type}>{msg.text}</Alert></div>}
+
+      {/* ---- Question count vs required 30 per test ---- */}
+      <div className="card mb-4">
+        <h2 className="mb-3 font-semibold text-slate-800">Questions per Test (required: 30 each)</h2>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8">
+          <CountChip label="Pre-Assessment" value={counts['Pre-Assessment']} />
+          {[1, 2, 3, 4, 5, 6].map((d) => (
+            <CountChip key={d} label={`Day ${d}`} value={counts.days[d]} />
+          ))}
+          <CountChip label="Grand Test" value={counts['Grand Test']} />
+        </div>
+        <p className="mt-2 text-xs text-slate-400">
+          Green = at least 30 available (test can fill 30). Amber = fewer than 30; add more or seed samples.
+        </p>
+      </div>
 
       {/* ---- Add / Edit form ---- */}
       <form onSubmit={handleSubmit} className="card mb-6 grid gap-4">
@@ -216,6 +265,17 @@ export default function ManageQuestions() {
         onConfirm={confirmDelete}
         onCancel={() => setDeleteId(null)}
       />
+    </div>
+  )
+}
+
+// Shows a test's available question count, green if it can fill 30, amber if not.
+function CountChip({ label, value }) {
+  const ok = value >= 30
+  return (
+    <div className={`rounded-lg border p-2 text-center ${ok ? 'border-green-200 bg-green-50' : 'border-amber-200 bg-amber-50'}`}>
+      <div className="text-xs text-slate-500">{label}</div>
+      <div className={`text-lg font-bold ${ok ? 'text-green-700' : 'text-amber-700'}`}>{value}</div>
     </div>
   )
 }

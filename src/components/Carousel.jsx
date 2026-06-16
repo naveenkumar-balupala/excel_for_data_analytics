@@ -1,10 +1,14 @@
 import { useEffect, useState } from 'react'
 
 // Simple image carousel with auto-advance, prev/next arrows and dot indicators.
-// images: array of { src, alt }
+// images: array of { src, alt }. Images that fail to load are dropped, and if
+// none load a neutral placeholder is shown (so missing files don't break the UI).
 export default function Carousel({ images = [], interval = 4000, heightClass = 'h-72 sm:h-96' }) {
   const [index, setIndex] = useState(0)
-  const count = images.length
+  const [failed, setFailed] = useState({})
+
+  const valid = images.filter((img) => !failed[img.src])
+  const count = valid.length
 
   useEffect(() => {
     if (count <= 1) return
@@ -12,15 +16,35 @@ export default function Carousel({ images = [], interval = 4000, heightClass = '
     return () => clearInterval(t)
   }, [count, interval])
 
-  if (count === 0) return null
+  // Keep the active index in range as images load/fail.
+  useEffect(() => {
+    if (index >= count && count > 0) setIndex(0)
+  }, [index, count])
+
+  // Render hidden probe <img>s so onError can flag missing files.
+  const probes = images.map((img) => (
+    <img key={`probe-${img.src}`} src={img.src} alt="" className="hidden" onError={() => setFailed((f) => ({ ...f, [img.src]: true }))} />
+  ))
+
+  if (count === 0) {
+    return (
+      <>
+        {probes}
+        <div className={`flex w-full items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 text-sm text-slate-400 ${heightClass}`}>
+          Event photos coming soon
+        </div>
+      </>
+    )
+  }
 
   const go = (i) => setIndex((i + count) % count)
 
   return (
     <div className={`relative w-full overflow-hidden rounded-xl bg-slate-100 ${heightClass}`}>
-      {images.map((img, i) => (
+      {probes}
+      {valid.map((img, i) => (
         <img
-          key={i}
+          key={img.src}
           src={img.src}
           alt={img.alt}
           loading="lazy"
@@ -49,7 +73,7 @@ export default function Carousel({ images = [], interval = 4000, heightClass = '
             ›
           </button>
           <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-2">
-            {images.map((_, i) => (
+            {valid.map((_, i) => (
               <button
                 key={i}
                 type="button"

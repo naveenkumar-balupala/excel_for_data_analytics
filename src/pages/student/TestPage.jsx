@@ -76,6 +76,8 @@ export default function TestPage() {
     () => questions.filter((q) => answers[q.id] != null).length,
     [questions, answers],
   )
+  // Highlight Submit (primary) only once every question is answered.
+  const allAnswered = questions.length > 0 && attemptedCount === questions.length
 
   const selectOption = (qId, option) => {
     setAnswers((prev) => ({ ...prev, [qId]: option }))
@@ -172,7 +174,7 @@ export default function TestPage() {
             {current < questions.length - 1 ? (
               <button className="btn-primary" onClick={() => setCurrent((c) => c + 1)}>Next →</button>
             ) : (
-              <button className="btn-primary" onClick={() => setConfirmOpen(true)}>Submit Test</button>
+              <button className={allAnswered ? 'btn-primary' : 'btn-secondary'} onClick={() => setConfirmOpen(true)}>Submit Test</button>
             )}
           </div>
         </div>
@@ -208,9 +210,18 @@ export default function TestPage() {
           <span className="flex items-center gap-1"><span className="h-3 w-3 rounded bg-green-500" /> Attempted</span>
           <span className="flex items-center gap-1"><span className="h-3 w-3 rounded bg-slate-200" /> Pending</span>
         </div>
-        <button className="btn-primary mt-5 w-full" onClick={() => setConfirmOpen(true)} disabled={submitting}>
-          {submitting ? 'Submitting…' : 'Submit Test'}
+        <button
+          className={`mt-5 w-full ${allAnswered ? 'btn-primary' : 'btn-secondary'}`}
+          onClick={() => setConfirmOpen(true)}
+          disabled={submitting}
+        >
+          {submitting ? 'Submitting…' : allAnswered ? 'Submit Test' : `Submit (${attemptedCount}/${questions.length})`}
         </button>
+        {!allAnswered && (
+          <p className="mt-2 text-center text-xs text-slate-400">
+            Submit highlights once all questions are answered. You may still submit early.
+          </p>
+        )}
       </aside>
 
       <ConfirmModal

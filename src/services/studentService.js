@@ -14,6 +14,7 @@ import {
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  sendPasswordResetEmail,
   signOut,
   deleteUser,
 } from 'firebase/auth'
@@ -74,6 +75,13 @@ export async function registerStudent({
 
 export async function loginStudent(email, password) {
   return signInWithEmailAndPassword(auth, email.trim(), password)
+}
+
+// Admin: send a password-reset email to a student. (Directly setting another
+// user's password needs the server Admin SDK, which a static site can't use;
+// the email link lets the student set a new password securely themselves.)
+export async function sendStudentPasswordReset(email) {
+  return sendPasswordResetEmail(auth, email)
 }
 
 export async function getStudent(uid) {

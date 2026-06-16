@@ -81,6 +81,16 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
+    // ---- progress ----  (auto-saved in-progress test answers)
+    // id = "{studentId}_{testId}". A student manages only their own progress.
+    // Stores option order + selected answers, never the answer key.
+    match /progress/{progressId} {
+      allow read: if isAdmin()
+        || (isSignedIn() && progressId.split('_')[0] == request.auth.uid);
+      allow create, update, delete: if isSignedIn()
+        && progressId.split('_')[0] == request.auth.uid;
+    }
+
     // ---- results ----
     // A student may read their OWN result only after the admin releases results
     // for that test. Admins always can.

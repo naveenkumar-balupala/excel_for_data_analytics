@@ -4,6 +4,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { getTest } from '../../services/testService'
 import { getQuestionsForTest } from '../../services/questionService'
 import { hasAttempted, submitAttempt } from '../../services/attemptService'
+import { getProgress, startProgress, saveAnswers, deleteProgress } from '../../services/progressService'
 import { pickRandom, shuffle } from '../../utils/shuffle'
 import { calculateResult } from '../../utils/scoring'
 import Loader from '../../components/Loader'
@@ -24,11 +25,12 @@ export default function TestPage() {
   const [error, setError] = useState('')
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [remainingSeconds, setRemainingSeconds] = useState(null)
 
-  const startedAtRef = useRef(new Date())
+  const startedAtRef = useRef(Date.now())
   const submittedRef = useRef(false) // guards against duplicate submissions
 
-  // ---- Load test + build a randomized 30-question paper (once) ----
+  // ---- Load test: resume saved progress if any, else build a fresh paper ----
   useEffect(() => {
     if (!profile) return
     ;(async () => {
@@ -42,23 +44,66 @@ export default function TestPage() {
         }
         const pool = await getQuestionsForTest(t.testType, t.dayNumber)
         if (pool.length === 0) throw new Error('No questions available for this test yet.')
+        const poolById = Object.fromEntries(pool.map((q) => [q.id, q]))
 
-        const count = Math.min(t.totalQuestions || 30, pool.length)
-        // Randomize question order, then shuffle each question's options.
-        const paper = pickRandom(pool, count).map((q) => ({
-          ...q,
-          options: shuffle(q.options),
-        }))
+        const durationSec = (t.duration || 30) * 60
+        let paper
+        let startedAtMs
+        let savedAnswers = {}
+
+        const progress = await getProgress(profile.id, testId)
+        if (progress && Array.isArray(progress.order) && progress.order.length) {
+          // RESUME: rebuild the same paper (same order + same option order).
+          startedAtMs = progress.startedAtMs || Date.now()
+          savedAnswers = progress.answers || {}
+          paper = progress.order
+            .map((id) => {
+              const base = poolById[id]
+              if (!base) return null
+              return { ...base, options: progress.options?.[id] || shuffle(base.options) }
+            })
+            .filter(Boolean)
+        }
+
+        if (!paper || paper.length === 0) {
+          // FRESH start: randomize questions + options, then persist the paper.
+          const count = Math.min(t.totalQuestions || 30, pool.length)
+          paper = pickRandom(pool, count).map((q) => ({ ...q, options: shuffle(q.options) }))
+          startedAtMs = Date.now()
+          await startProgress(profile.id, testId, paper, startedAtMs)
+        }
+
+        startedAtRef.current = startedAtMs
+        const elapsed = Math.floor((Date.now() - startedAtMs) / 1000)
+        const remaining = Math.max(durationSec - elapsed, 0)
+
         setTest(t)
         setQuestions(paper)
+        setAnswers(savedAnswers)
+        setRemainingSeconds(remaining)
+        setLoading(false)
+
+        // If the timer already ran out while away, auto-submit saved answers.
+        if (remaining <= 0) {
+          setTimeout(() => doSubmitWith(paper, savedAnswers, t), 0)
+        }
       } catch (err) {
         setError(err.message)
-      } finally {
         setLoading(false)
       }
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [testId, profile])
+
+  // ---- Auto-save answers to Firestore (debounced) whenever they change ----
+  useEffect(() => {
+    if (loading || submittedRef.current || !profile) return
+    const id = setTimeout(() => {
+      saveAnswers(profile.id, testId, answers).catch(() => {})
+    }, 800)
+    return () => clearTimeout(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [answers, loading])
 
   // ---- Warn before refresh/close ----
   useEffect(() => {
@@ -83,22 +128,23 @@ export default function TestPage() {
     setAnswers((prev) => ({ ...prev, [qId]: option }))
   }
 
-  // ---- Final submission (manual or auto) ----
-  const doSubmit = async () => {
+  // ---- Final submission (manual, auto-on-timer, or auto-on-expired-resume) ----
+  const doSubmitWith = async (paperArg, answersArg, testArg) => {
     if (submittedRef.current) return // duplicate guard
     submittedRef.current = true
     setSubmitting(true)
     setConfirmOpen(false)
     try {
-      const result = calculateResult(questions, answers)
+      const result = calculateResult(paperArg, answersArg)
       await submitAttempt({
         student: profile,
-        test,
-        questions,
-        answers,
+        test: testArg,
+        questions: paperArg,
+        answers: answersArg,
         result,
-        startedAt: startedAtRef.current,
+        startedAt: new Date(startedAtRef.current),
       })
+      await deleteProgress(profile.id, testId).catch(() => {})
       navigate(`/result/${testId}`, { replace: true })
     } catch (err) {
       submittedRef.current = false
@@ -106,6 +152,7 @@ export default function TestPage() {
       setSubmitting(false)
     }
   }
+  const doSubmit = () => doSubmitWith(questions, answers, test)
 
   if (loading) return <Loader message="Preparing your test…" />
   if (error)
@@ -127,7 +174,7 @@ export default function TestPage() {
             <span className="badge bg-brand/10 text-brand">{test.testType}</span>
             <h1 className="text-lg font-bold text-slate-800">{test.testTitle}</h1>
           </div>
-          <Timer durationSeconds={(test.duration || 30) * 60} onExpire={doSubmit} />
+          <Timer durationSeconds={remainingSeconds ?? (test.duration || 30) * 60} onExpire={doSubmit} />
         </div>
 
         <div className="card">
@@ -187,6 +234,7 @@ export default function TestPage() {
           Attempted: <b className="text-green-600">{attemptedCount}</b> · Not attempted:{' '}
           <b className="text-slate-600">{questions.length - attemptedCount}</b>
         </p>
+        <p className="mt-1 text-xs text-green-600">✓ Answers auto-saved — you can safely resume if disconnected.</p>
         <div className="mt-3 grid grid-cols-6 gap-2">
           {questions.map((qq, i) => {
             const done = answers[qq.id] != null

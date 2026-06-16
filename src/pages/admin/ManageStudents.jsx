@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { getAllStudents, deleteStudent, updateStudent } from '../../services/studentService'
+import { getAllStudents, deleteStudent, updateStudent, sendStudentPasswordReset } from '../../services/studentService'
 import { getAllAttempts } from '../../services/attemptService'
 import { createBatch, deleteBatch, getAllBatches } from '../../services/batchService'
 import { exportToCSV, exportToExcel } from '../../utils/export'
@@ -137,6 +137,17 @@ export default function ManageStudents() {
     }
   }
 
+  // ---- reset password (sends a Firebase reset email to the student) ----
+  const handleResetPassword = async (s) => {
+    setMsg({ type: 'info', text: `Sending reset email to ${s.email}…` })
+    try {
+      await sendStudentPasswordReset(s.email)
+      setMsg({ type: 'success', text: `Password reset email sent to ${s.email}.` })
+    } catch (err) {
+      setMsg({ type: 'error', text: err.message })
+    }
+  }
+
   // ---- student delete ----
   const confirmDeleteStudent = async () => {
     const target = deleteTarget
@@ -223,8 +234,9 @@ export default function ManageStudents() {
                 <td>{s.batch || '—'}</td>
                 <td><span className="badge bg-brand/10 text-brand">{attemptCount[s.id] || 0}</span></td>
                 <td>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     <button className="btn-secondary" onClick={() => openEdit(s)}>Edit</button>
+                    <button className="btn-secondary" onClick={() => handleResetPassword(s)}>Reset Password</button>
                     <button className="btn-danger" onClick={() => setDeleteTarget(s)}>Delete</button>
                   </div>
                 </td>

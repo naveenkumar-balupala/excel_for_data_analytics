@@ -248,16 +248,28 @@ export default function ManageStudents() {
 
       {/* ---- Filters ---- */}
       <div className="card mb-4 grid gap-3 sm:grid-cols-4">
-        <input className="input" placeholder="Search name / USN / email" value={search} onChange={(e) => setSearch(e.target.value)} />
-        <select className="input" value={branch} onChange={(e) => setBranch(e.target.value)}>
-          {branches.map((b) => <option key={b}>{b}</option>)}
-        </select>
-        <select className="input" value={section} onChange={(e) => setSection(e.target.value)}>
-          {sections.map((s) => <option key={s}>{s}</option>)}
-        </select>
-        <select className="input" value={batchFilter} onChange={(e) => setBatchFilter(e.target.value)}>
-          {batchOptions.map((b) => <option key={b}>{b}</option>)}
-        </select>
+        <div>
+          <label className="label">Search</label>
+          <input className="input" placeholder="Name / USN / email" value={search} onChange={(e) => setSearch(e.target.value)} />
+        </div>
+        <div>
+          <label className="label">Branch</label>
+          <select className="input" value={branch} onChange={(e) => setBranch(e.target.value)}>
+            {branches.map((b) => <option key={b}>{b}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="label">Section</label>
+          <select className="input" value={section} onChange={(e) => setSection(e.target.value)}>
+            {sections.map((s) => <option key={s}>{s}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="label">Batch</label>
+          <select className="input" value={batchFilter} onChange={(e) => setBatchFilter(e.target.value)}>
+            {batchOptions.map((b) => <option key={b}>{b}</option>)}
+          </select>
+        </div>
       </div>
 
       {/* ---- Student table ---- */}

@@ -95,21 +95,42 @@ export default function ViewResults() {
       {msg.text && <div className="mb-4"><Alert type={msg.type}>{msg.text}</Alert></div>}
 
       <div className="card mb-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-7">
-        <input className="input" placeholder="Search name / USN" value={search} onChange={(e) => setSearch(e.target.value)} />
-        <select className="input" value={testType} onChange={(e) => setTestType(e.target.value)}>
-          {testTypes.map((t) => <option key={t}>{t}</option>)}
-        </select>
-        <select className="input" value={branch} onChange={(e) => setBranch(e.target.value)}>
-          {branches.map((b) => <option key={b}>{b}</option>)}
-        </select>
-        <select className="input" value={section} onChange={(e) => setSection(e.target.value)}>
-          {sections.map((s) => <option key={s}>{s}</option>)}
-        </select>
-        <select className="input" value={batch} onChange={(e) => setBatch(e.target.value)}>
-          {batches.map((b) => <option key={b}>{b}</option>)}
-        </select>
-        <input className="input" type="number" placeholder="Min %" value={minScore} onChange={(e) => setMinScore(e.target.value)} />
-        <input className="input" type="number" placeholder="Max %" value={maxScore} onChange={(e) => setMaxScore(e.target.value)} />
+        <div>
+          <label className="label">Search</label>
+          <input className="input" placeholder="Name / USN" value={search} onChange={(e) => setSearch(e.target.value)} />
+        </div>
+        <div>
+          <label className="label">Test Type</label>
+          <select className="input" value={testType} onChange={(e) => setTestType(e.target.value)}>
+            {testTypes.map((t) => <option key={t}>{t}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="label">Branch</label>
+          <select className="input" value={branch} onChange={(e) => setBranch(e.target.value)}>
+            {branches.map((b) => <option key={b}>{b}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="label">Section</label>
+          <select className="input" value={section} onChange={(e) => setSection(e.target.value)}>
+            {sections.map((s) => <option key={s}>{s}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="label">Batch</label>
+          <select className="input" value={batch} onChange={(e) => setBatch(e.target.value)}>
+            {batches.map((b) => <option key={b}>{b}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="label">Min %</label>
+          <input className="input" type="number" placeholder="0" value={minScore} onChange={(e) => setMinScore(e.target.value)} />
+        </div>
+        <div>
+          <label className="label">Max %</label>
+          <input className="input" type="number" placeholder="100" value={maxScore} onChange={(e) => setMaxScore(e.target.value)} />
+        </div>
       </div>
 
       <div className="card overflow-x-auto">

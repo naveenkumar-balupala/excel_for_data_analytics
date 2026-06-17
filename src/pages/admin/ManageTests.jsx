@@ -50,8 +50,9 @@ export default function ManageTests() {
         <Link to="/admin/create-test" className="btn-primary">+ Create Test</Link>
       </div>
 
+      <p className="mb-2 text-xs text-slate-400 sm:hidden">Swipe the table sideways to see more columns →</p>
       <div className="card overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full min-w-[820px] text-sm">
           <thead>
             <tr className="text-left text-slate-500">
               <th className="py-2">Title</th><th>Type</th><th>Day</th><th>Qs</th><th>Duration</th><th>Attempts</th><th>Status</th><th>Results</th><th>Actions</th>

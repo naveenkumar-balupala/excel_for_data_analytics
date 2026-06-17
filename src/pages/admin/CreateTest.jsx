@@ -52,7 +52,7 @@ export default function CreateTest() {
         <button className="btn-secondary" onClick={seedDefaults}>Create 8 Default Tests</button>
       </div>
 
-      {msg.text && <div className="mb-4"><Alert type={msg.type}>{msg.text}</Alert></div>}
+      {msg.text && <div className="mb-4"><Alert type={msg.type} onClose={() => setMsg({ type: '', text: '' })} autoCloseMs={msg.type === 'error' ? undefined : 5000}>{msg.text}</Alert></div>}
 
       <form onSubmit={handleSubmit} className="card grid gap-4">
         <div>

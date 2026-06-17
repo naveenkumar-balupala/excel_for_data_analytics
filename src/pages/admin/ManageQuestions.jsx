@@ -156,7 +156,7 @@ export default function ManageQuestions() {
         </div>
       </div>
 
-      {msg.text && <div className="mb-4"><Alert type={msg.type}>{msg.text}</Alert></div>}
+      {msg.text && <div className="mb-4"><Alert type={msg.type} onClose={() => setMsg({ type: '', text: '' })} autoCloseMs={msg.type === 'error' ? undefined : 5000}>{msg.text}</Alert></div>}
 
       {/* ---- Question count vs required 30 per test ---- */}
       <div className="card mb-4">
@@ -253,7 +253,7 @@ export default function ManageQuestions() {
             </div>
           </div>
         ))}
-        {filtered.length === 0 && <div className="card text-center text-slate-400">No questions match the filters.</div>}
+        {filtered.length === 0 && <div className="card text-center text-slate-400">No questions match these filters. Try clearing the search or filters above.</div>}
       </div>
 
       <ConfirmModal

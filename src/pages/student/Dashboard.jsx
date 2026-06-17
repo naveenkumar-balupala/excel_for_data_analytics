@@ -75,11 +75,13 @@ export default function Dashboard() {
                           <span className="font-bold text-slate-800">{attempt.percentage}%</span>
                         </div>
                         <Link to={`/result/${test.id}`} className="btn-secondary w-full">View Result</Link>
-                        <p className="text-center text-xs text-amber-600">🔒 Already attempted (1 attempt only)</p>
+                        <p className="text-center">
+                          <span className="badge bg-slate-100 text-slate-600">Completed · 1 attempt only</span>
+                        </p>
                       </div>
                     ) : (
                       <div className="space-y-2 rounded-lg bg-slate-50 p-3 text-center">
-                        <p className="text-sm font-semibold text-green-600">✓ Submitted</p>
+                        <span className="badge bg-green-100 text-green-700">Submitted</span>
                         <p className="text-xs text-slate-500">
                           Your result will be available once the admin releases it.
                         </p>

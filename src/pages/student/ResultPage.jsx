@@ -79,8 +79,9 @@ export default function ResultPage() {
       <div className={`rounded-2xl p-6 text-white ${pass ? 'bg-green-600' : 'bg-amber-600'}`}>
         <p className="text-sm opacity-90">{result.testTitle}</p>
         <h1 className="text-3xl font-extrabold">{result.percentage}%</h1>
-        <p className="mt-1 font-semibold">
-          {pass ? '🎉 Pass' : '📘 Needs Improvement'} · Score {result.score}/{result.questionSnapshot?.length || result.correctCount + result.wrongCount + result.unattemptedCount}
+        <p className="mt-2 flex items-center gap-2 font-semibold">
+          <span className="badge bg-white/20 text-white">{pass ? 'Pass' : 'Needs Improvement'}</span>
+          <span>Score {result.score}/{result.questionSnapshot?.length || result.correctCount + result.wrongCount + result.unattemptedCount}</span>
         </p>
       </div>
 

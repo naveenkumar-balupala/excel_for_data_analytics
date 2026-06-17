@@ -205,7 +205,15 @@ export default function TestPage() {
             })}
           </div>
 
-          <div className="mt-6 flex items-center justify-between">
+          {answers[q.id] != null && (
+            <div className="mt-3">
+              <button className="text-xs text-slate-500 underline hover:text-slate-700" onClick={() => setAnswers((p) => { const n = { ...p }; delete n[q.id]; return n })}>
+                Clear this answer
+              </button>
+            </div>
+          )}
+
+          <div className="mt-6 flex items-center justify-between gap-3">
             <button
               className="btn-secondary"
               disabled={current === 0}
@@ -213,22 +221,17 @@ export default function TestPage() {
             >
               ← Previous
             </button>
-            {answers[q.id] != null && (
-              <button className="text-xs text-slate-400 underline" onClick={() => setAnswers((p) => { const n = { ...p }; delete n[q.id]; return n })}>
-                Clear answer
-              </button>
-            )}
             {current < questions.length - 1 ? (
               <button className="btn-primary" onClick={() => setCurrent((c) => c + 1)}>Next →</button>
             ) : (
-              <button className={allAnswered ? 'btn-primary' : 'btn-secondary'} onClick={() => setConfirmOpen(true)}>Submit Test</button>
+              <button className="btn-primary" onClick={() => setConfirmOpen(true)}>Submit Test</button>
             )}
           </div>
         </div>
       </div>
 
       {/* ---- Navigation panel ---- */}
-      <aside className="card h-fit">
+      <aside className="card h-fit lg:sticky lg:top-20">
         <h3 className="text-sm font-semibold text-slate-700">Question Navigation</h3>
         <p className="mt-1 text-xs text-slate-500">
           Attempted: <b className="text-green-600">{attemptedCount}</b> · Not attempted:{' '}

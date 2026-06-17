@@ -37,7 +37,7 @@ export default function ForcePasswordChange() {
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
-      <form onSubmit={submit} className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+      <form onSubmit={submit} role="dialog" aria-modal="true" className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
         <h3 className="text-lg font-semibold text-slate-800">Set a New Password</h3>
         <p className="mt-1 text-sm text-slate-500">
           Your temporary password is your USN. For security, please set a new password to continue.

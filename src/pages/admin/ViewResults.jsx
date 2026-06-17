@@ -92,9 +92,9 @@ export default function ViewResults() {
         </div>
       </div>
 
-      {msg.text && <div className="mb-4"><Alert type={msg.type}>{msg.text}</Alert></div>}
+      {msg.text && <div className="mb-4"><Alert type={msg.type} onClose={() => setMsg({ type: '', text: '' })} autoCloseMs={msg.type === 'error' ? undefined : 5000}>{msg.text}</Alert></div>}
 
-      <div className="card mb-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-7">
+      <div className="card mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7">
         <div>
           <label className="label">Search</label>
           <input className="input" placeholder="Name / USN" value={search} onChange={(e) => setSearch(e.target.value)} />
@@ -133,8 +133,9 @@ export default function ViewResults() {
         </div>
       </div>
 
+      <p className="mb-2 text-xs text-slate-400 sm:hidden">Swipe the table sideways to see more columns →</p>
       <div className="card overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full min-w-[720px] text-sm">
           <thead>
             <tr className="text-left text-slate-500">
               <th className="py-2">Name</th><th>USN</th><th>Branch</th><th>Sec</th><th>Batch</th><th>Test</th><th>Score</th><th>%</th><th>Status</th>
@@ -159,7 +160,7 @@ export default function ViewResults() {
               </tr>
             ))}
             {filtered.length === 0 && (
-              <tr><td colSpan={9} className="py-6 text-center text-slate-400">No results match the filters.</td></tr>
+              <tr><td colSpan={9} className="py-6 text-center text-slate-400">No results match these filters. Try clearing the search or filters above.</td></tr>
             )}
           </tbody>
         </table>

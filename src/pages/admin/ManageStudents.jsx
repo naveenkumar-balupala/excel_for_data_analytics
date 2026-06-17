@@ -225,7 +225,7 @@ export default function ManageStudents() {
         </div>
       </div>
 
-      {msg.text && <div className="mb-4"><Alert type={msg.type}>{msg.text}</Alert></div>}
+      {msg.text && <div className="mb-4"><Alert type={msg.type} onClose={() => setMsg({ type: '', text: '' })} autoCloseMs={msg.type === 'error' ? undefined : 5000}>{msg.text}</Alert></div>}
 
       {/* ---- Batch management ---- */}
       <div className="card mb-4">
@@ -247,7 +247,7 @@ export default function ManageStudents() {
       </div>
 
       {/* ---- Filters ---- */}
-      <div className="card mb-4 grid gap-3 sm:grid-cols-4">
+      <div className="card mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <div>
           <label className="label">Search</label>
           <input className="input" placeholder="Name / USN / email" value={search} onChange={(e) => setSearch(e.target.value)} />
@@ -273,8 +273,9 @@ export default function ManageStudents() {
       </div>
 
       {/* ---- Student table ---- */}
+      <p className="mb-2 text-xs text-slate-400 sm:hidden">Swipe the table sideways to see more columns →</p>
       <div className="card overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full min-w-[760px] text-sm">
           <thead>
             <tr className="text-left text-slate-500">
               <th className="cursor-pointer py-2 hover:text-slate-800" onClick={() => toggleSort('name')}>Name{arrow('name')}</th>
@@ -306,7 +307,7 @@ export default function ManageStudents() {
               </tr>
             ))}
             {sorted.length === 0 && (
-              <tr><td colSpan={8} className="py-6 text-center text-slate-400">No students match the filters.</td></tr>
+              <tr><td colSpan={8} className="py-6 text-center text-slate-400">No students match these filters. Try clearing the search or filters above.</td></tr>
             )}
           </tbody>
         </table>
@@ -315,7 +316,16 @@ export default function ManageStudents() {
       <ConfirmModal
         open={!!deleteTarget}
         title="Delete Student?"
-        message={deleteTarget ? `This permanently removes ${deleteTarget.name} (${deleteTarget.usn}) and all their test attempts & results. The login account must be removed separately from Firebase Authentication. Continue?` : ''}
+        message={deleteTarget ? (
+          <>
+            This permanently removes <b>{deleteTarget.name}</b> ({deleteTarget.usn}) and all their test
+            attempts &amp; results.
+            <span className="mt-2 block font-semibold text-amber-700">
+              Note: their login is not removed automatically — delete it from Firebase Console → Authentication
+              if you want to fully block sign-in.
+            </span>
+          </>
+        ) : ''}
         confirmText="Delete Student"
         danger
         onConfirm={confirmDeleteStudent}
@@ -335,7 +345,7 @@ export default function ManageStudents() {
       {/* ---- Bulk import modal ---- */}
       {importOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
+          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
             <h3 className="text-lg font-semibold text-slate-800">Bulk Import Students</h3>
             <p className="mt-1 text-xs text-slate-500">
               Upload a CSV/Excel with columns: Name, USN, Email, Phone, Branch, Section, Batch.
@@ -414,7 +424,7 @@ export default function ManageStudents() {
       {/* ---- Edit student modal ---- */}
       {editTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <form onSubmit={saveEdit} className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+          <form onSubmit={saveEdit} className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
             <h3 className="text-lg font-semibold text-slate-800">Edit Student</h3>
             <p className="mt-1 text-xs text-slate-500">{editTarget.usn} · {editTarget.email}</p>
 

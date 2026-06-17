@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { buildDashboard } from '../../services/statsService'
+import { buildDashboard, computeStats } from '../../services/statsService'
 import Loader from '../../components/Loader'
 import StatCard from '../../components/StatCard'
 import Alert from '../../components/Alert'
@@ -12,6 +12,7 @@ export default function AdminDashboard() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [batch, setBatch] = useState('All')
 
   useEffect(() => {
     buildDashboard()
@@ -23,27 +24,41 @@ export default function AdminDashboard() {
   if (loading) return <Loader message="Building dashboard…" />
   if (error) return <Alert type="error">{error}</Alert>
 
-  const { cards, testWise, topicWise } = data
-  const topPerformers = [...data.attempts].sort((a, b) => b.percentage - a.percentage).slice(0, 5)
-  const needHelp = [...data.attempts].filter((a) => a.status !== 'Pass').slice(0, 5)
+  // Batch filter: recompute every metric for the selected batch.
+  const batchOptions = ['All', ...new Set(data.students.map((s) => s.batch).filter(Boolean))]
+  const inAll = batch === 'All'
+  const fStudents = inAll ? data.students : data.students.filter((s) => s.batch === batch)
+  const fAttempts = inAll ? data.attempts : data.attempts.filter((a) => a.batch === batch)
+  const fResults = inAll ? data.results : data.results.filter((r) => r.batch === batch)
+  const view = inAll
+    ? data
+    : computeStats({ students: fStudents, tests: data.tests, attempts: fAttempts, results: fResults })
+
+  const { cards, testWise, topicWise } = view
+  const topPerformers = [...fAttempts].sort((a, b) => b.percentage - a.percentage).slice(0, 5)
+  const needHelp = [...fAttempts].filter((a) => a.status !== 'Pass').slice(0, 5)
 
   // Batch-wise student count (+ attempts) for the dashboard.
   const byBatch = {}
-  data.students.forEach((s) => {
+  fStudents.forEach((s) => {
     const k = s.batch || 'Unknown'
     byBatch[k] = (byBatch[k] || 0) + 1
   })
   const batchData = Object.entries(byBatch).map(([name, students]) => ({
     name,
     students,
-    attempts: data.batchWise.find((b) => b.name === name)?.attempts || 0,
+    attempts: view.batchWise.find((b) => b.name === name)?.attempts || 0,
   }))
 
   return (
     <div>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-slate-800">Admin Dashboard</h1>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="text-sm font-medium text-slate-500">Batch</label>
+          <select className="input max-w-[12rem]" value={batch} onChange={(e) => setBatch(e.target.value)}>
+            {batchOptions.map((b) => <option key={b}>{b}</option>)}
+          </select>
           <Link to="/admin/statistics" className="btn-secondary">Full Statistics</Link>
           <Link to="/admin/export" className="btn-primary">Export Reports</Link>
         </div>

@@ -130,6 +130,7 @@ export async function updateStudent(id, data) {
 
   const patch = {}
   if ('name' in data) patch.studentName = data.name
+  if ('usn' in data) patch.usn = data.usn
   if ('branch' in data) patch.branch = data.branch
   if ('section' in data) patch.section = data.section
   if ('batch' in data) patch.batch = data.batch
@@ -160,6 +161,7 @@ export async function syncResultsWithStudents() {
   const updates = []
   const patchFrom = (s) => ({
     studentName: s.name ?? '',
+    usn: s.usn ?? '',
     branch: s.branch ?? '',
     section: s.section ?? '',
     batch: s.batch ?? null,

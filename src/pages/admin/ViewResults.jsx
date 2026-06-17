@@ -30,7 +30,7 @@ export default function ViewResults() {
         .map((att) => {
           const s = byId[att.studentId]
           return s
-            ? { ...att, studentName: s.name ?? att.studentName, branch: s.branch ?? att.branch, section: s.section ?? att.section, batch: s.batch ?? att.batch ?? null }
+            ? { ...att, studentName: s.name ?? att.studentName, usn: s.usn ?? att.usn, branch: s.branch ?? att.branch, section: s.section ?? att.section, batch: s.batch ?? att.batch ?? null }
             : att
         })
       setAttempts(enriched)

@@ -95,6 +95,7 @@ function withCurrentStudent(items, studentsById) {
     return {
       ...x,
       studentName: s.name ?? x.studentName,
+      usn: s.usn ?? x.usn,
       branch: s.branch ?? x.branch,
       section: s.section ?? x.section,
       batch: s.batch ?? x.batch ?? null,

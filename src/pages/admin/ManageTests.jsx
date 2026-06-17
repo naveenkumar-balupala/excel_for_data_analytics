@@ -25,6 +25,17 @@ export default function ManageTests() {
     return map
   }, [attempts])
 
+  // Show tests in the natural sequence: Pre-Assessment, Day 1..N, Grand Test.
+  const sortedTests = useMemo(() => {
+    const key = (t) => {
+      if (t.testType === 'Pre-Assessment') return 0
+      if (t.testType === 'Grand Test') return 10000
+      if (t.testType === 'Day-wise Test') return 100 + (t.dayNumber || 0)
+      return 5000
+    }
+    return [...tests].sort((a, b) => key(a) - key(b))
+  }, [tests])
+
   const toggleActive = async (test) => {
     await updateTest(test.id, { isActive: !test.isActive })
     load()
@@ -59,7 +70,7 @@ export default function ManageTests() {
             </tr>
           </thead>
           <tbody>
-            {tests.map((t) => (
+            {sortedTests.map((t) => (
               <tr key={t.id} className="border-t border-slate-100">
                 <td className="py-2 font-medium">{t.testTitle}</td>
                 <td>{t.testType}</td>

@@ -20,6 +20,7 @@ import {
   signInWithEmailAndPassword,
   sendPasswordResetEmail,
   signOut,
+  updatePassword,
   deleteUser,
 } from 'firebase/auth'
 import { auth, db, firebaseConfig } from '../firebase/config'
@@ -221,7 +222,7 @@ function cell(row, aliases) {
   return ''
 }
 
-function normalizeImportRow(row, { defaultBatch, defaultPassword }) {
+function normalizeImportRow(row, { defaultBatch }) {
   const usn = cell(row, ['usn', 'roll', 'roll no', 'roll number', 'usn / roll number']).toUpperCase()
   return {
     name: cell(row, ['name', 'full name', 'student name']),
@@ -231,7 +232,9 @@ function normalizeImportRow(row, { defaultBatch, defaultPassword }) {
     branch: cell(row, ['branch', 'department', 'dept']),
     section: cell(row, ['section', 'sec']).toUpperCase(),
     batch: cell(row, ['batch', 'batch year']) || defaultBatch || '',
-    password: cell(row, ['password', 'pwd']) || defaultPassword || usn,
+    // Initial password is the student's own USN; they must change it on first
+    // login (see mustChangePassword below).
+    password: usn,
   }
 }
 
@@ -240,7 +243,7 @@ function validateImportRow(r) {
   if (!/^[A-Za-z0-9]+$/.test(r.usn)) return 'invalid USN'
   if (!EMAIL_RE.test(r.email)) return 'invalid email'
   if (r.phone && !/^\d{10}$/.test(r.phone)) return 'phone must be 10 digits'
-  if ((r.password || '').length < 6) return 'password must be at least 6 characters'
+  if (r.usn.length < 6) return 'USN too short to use as the initial password (min 6 characters)'
   return ''
 }
 
@@ -260,7 +263,7 @@ const AUTH_ERR = {
 //
 // Returns { total, created, failed, errors:[`<label>: <reason>`] }. Rows are
 // processed sequentially and one failure never aborts the rest.
-export async function bulkImportStudents(rows, { defaultBatch = '', defaultPassword = '', onProgress } = {}) {
+export async function bulkImportStudents(rows, { defaultBatch = '', onProgress } = {}) {
   const summary = { total: rows.length, created: 0, failed: 0, errors: [] }
 
   const secApp = initializeApp(firebaseConfig, 'bulk-import')
@@ -271,7 +274,7 @@ export async function bulkImportStudents(rows, { defaultBatch = '', defaultPassw
 
   try {
     for (let i = 0; i < rows.length; i++) {
-      const r = normalizeImportRow(rows[i], { defaultBatch, defaultPassword })
+      const r = normalizeImportRow(rows[i], { defaultBatch })
       const label = r.usn || r.email || `row ${i + 2}`
 
       const invalid = validateImportRow(r)
@@ -297,6 +300,8 @@ export async function bulkImportStudents(rows, { defaultBatch = '', defaultPassw
             section: r.section,
             batch: r.batch,
             role: 'student',
+            // Password starts as the USN; force a change on first login.
+            mustChangePassword: true,
             createdAt: serverTimestamp(),
           })
           await setDoc(usnRef, { uid, usn: r.usn, createdAt: serverTimestamp() })
@@ -318,4 +323,14 @@ export async function bulkImportStudents(rows, { defaultBatch = '', defaultPassw
   }
 
   return summary
+}
+
+// Student: set a new password and clear the forced-change flag. Called from the
+// first-login gate. The session is fresh after login, so no reauth is needed.
+export async function changeOwnPassword(newPassword) {
+  if ((newPassword || '').length < 6) throw new Error('Password must be at least 6 characters.')
+  const u = auth.currentUser
+  if (!u) throw new Error('Not signed in.')
+  await updatePassword(u, newPassword)
+  await updateDoc(doc(db, 'students', u.uid), { mustChangePassword: false })
 }

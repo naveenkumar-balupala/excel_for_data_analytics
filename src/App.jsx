@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import Navbar from './components/Navbar'
 import ProtectedRoute from './components/ProtectedRoute'
+import ForcePasswordChange from './components/ForcePasswordChange'
 
 // Public / student pages
 import Home from './pages/Home'
@@ -27,6 +28,7 @@ export default function App() {
   return (
     <div className="min-h-screen">
       <Navbar />
+      <ForcePasswordChange />
       <main className="mx-auto max-w-7xl px-4 py-6">
         <Routes>
           {/* Public */}

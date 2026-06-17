@@ -28,7 +28,6 @@ export default function ManageStudents() {
   const [importOpen, setImportOpen] = useState(false)
   const [importFile, setImportFile] = useState(null)
   const [importBatch, setImportBatch] = useState('')
-  const [importPassword, setImportPassword] = useState('')
   const [importing, setImporting] = useState(false)
   const [importProgress, setImportProgress] = useState({ done: 0, total: 0 })
   const [importResult, setImportResult] = useState(null)
@@ -151,7 +150,7 @@ export default function ManageStudents() {
   // ---- bulk import students ----
   const downloadTemplate = () => {
     exportToExcel(
-      [{ Name: 'Jane Doe', USN: '1XX21CS001', Email: 'jane@example.com', Phone: '9876543210', Branch: 'CSE', Section: 'A', Batch: batches[0]?.name || '2024-2027', Password: '' }],
+      [{ Name: 'Jane Doe', USN: '1XX21CS001', Email: 'jane@example.com', Phone: '9876543210', Branch: 'CSE', Section: 'A', Batch: batches[0]?.name || '2024-2027' }],
       'students-import-template.xlsx',
       'Students',
     )
@@ -167,7 +166,6 @@ export default function ManageStudents() {
       setImportProgress({ done: 0, total: rows.length })
       const result = await bulkImportStudents(rows, {
         defaultBatch: importBatch,
-        defaultPassword: importPassword.trim(),
         onProgress: (done, total) => setImportProgress({ done, total }),
       })
       setImportResult(result)
@@ -185,7 +183,6 @@ export default function ManageStudents() {
     setImportOpen(false)
     setImportFile(null)
     setImportBatch('')
-    setImportPassword('')
     setImportProgress({ done: 0, total: 0 })
     setImportResult(null)
   }
@@ -329,8 +326,9 @@ export default function ManageStudents() {
           <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
             <h3 className="text-lg font-semibold text-slate-800">Bulk Import Students</h3>
             <p className="mt-1 text-xs text-slate-500">
-              Upload a CSV/Excel with columns: Name, USN, Email, Phone, Branch, Section, Batch, Password.
-              Each row creates a login account. Missing Batch/Password fall back to the defaults below.
+              Upload a CSV/Excel with columns: Name, USN, Email, Phone, Branch, Section, Batch.
+              Each row creates a login account whose <span className="font-semibold">initial password is the student's USN</span> —
+              they're prompted to change it on first login. A missing Batch falls back to the default below.
             </p>
 
             <div className="mt-4 grid gap-3">
@@ -349,26 +347,21 @@ export default function ManageStudents() {
                   onChange={(e) => { setImportFile(e.target.files?.[0] || null); setImportResult(null) }}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="label">Default Batch</label>
-                  {batches.length > 0 ? (
-                    <select className="input" value={importBatch} disabled={importing} onChange={(e) => setImportBatch(e.target.value)}>
-                      <option value="">— from file —</option>
-                      {batches.map((b) => <option key={b.id} value={b.name}>{b.name}</option>)}
-                    </select>
-                  ) : (
-                    <input className="input" value={importBatch} disabled={importing} onChange={(e) => setImportBatch(e.target.value)} placeholder="e.g. 2024-2027" />
-                  )}
-                </div>
-                <div>
-                  <label className="label">Default Password</label>
-                  <input className="input" value={importPassword} disabled={importing} onChange={(e) => setImportPassword(e.target.value)} placeholder="≥ 6 chars (else USN)" />
-                </div>
+              <div>
+                <label className="label">Default Batch</label>
+                {batches.length > 0 ? (
+                  <select className="input" value={importBatch} disabled={importing} onChange={(e) => setImportBatch(e.target.value)}>
+                    <option value="">— from file —</option>
+                    {batches.map((b) => <option key={b.id} value={b.name}>{b.name}</option>)}
+                  </select>
+                ) : (
+                  <input className="input" value={importBatch} disabled={importing} onChange={(e) => setImportBatch(e.target.value)} placeholder="e.g. 2024-2027" />
+                )}
               </div>
               <p className="text-xs text-slate-400">
-                If Default Password is blank, each student's password is set to their USN (min 6 characters).
-                Students can reset it later from the login page.
+                Each student logs in with their email and their USN as the temporary password, then must set
+                a new password before using the app. USNs shorter than 6 characters will be skipped (Firebase
+                requires a 6+ character password).
               </p>
 
               {importing && (

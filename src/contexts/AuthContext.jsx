@@ -17,36 +17,39 @@ export function AuthProvider({ children }) {
   const [role, setRole] = useState(null)
   const [loading, setLoading] = useState(true)
 
+  // Resolve role + profile for a given Firebase user (admins take precedence).
+  const resolveProfile = async (fbUser) => {
+    if (!fbUser) { setRole(null); setProfile(null); return }
+    const adminSnap = await getDoc(doc(db, 'admins', fbUser.uid))
+    if (adminSnap.exists()) {
+      setRole('admin')
+      setProfile({ id: fbUser.uid, ...adminSnap.data() })
+      return
+    }
+    const studentSnap = await getDoc(doc(db, 'students', fbUser.uid))
+    if (studentSnap.exists()) {
+      setRole('student')
+      setProfile({ id: fbUser.uid, ...studentSnap.data() })
+    } else {
+      setRole(null)
+      setProfile(null)
+    }
+  }
+
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (fbUser) => {
       setUser(fbUser)
-      if (fbUser) {
-        // Determine role: check admins collection first, then students.
-        const adminSnap = await getDoc(doc(db, 'admins', fbUser.uid))
-        if (adminSnap.exists()) {
-          setRole('admin')
-          setProfile({ id: fbUser.uid, ...adminSnap.data() })
-        } else {
-          const studentSnap = await getDoc(doc(db, 'students', fbUser.uid))
-          if (studentSnap.exists()) {
-            setRole('student')
-            setProfile({ id: fbUser.uid, ...studentSnap.data() })
-          } else {
-            setRole(null)
-            setProfile(null)
-          }
-        }
-      } else {
-        setRole(null)
-        setProfile(null)
-      }
+      await resolveProfile(fbUser)
       setLoading(false)
     })
     return unsub
   }, [])
 
+  // Re-read the current user's profile (e.g. after a forced password change).
+  const refreshProfile = () => resolveProfile(auth.currentUser)
+
   const logout = () => signOut(auth)
 
-  const value = { user, profile, role, loading, logout }
+  const value = { user, profile, role, loading, logout, refreshProfile }
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

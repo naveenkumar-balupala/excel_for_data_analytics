@@ -1,10 +1,12 @@
 // Student registration / profile Firestore logic.
+import { initializeApp, deleteApp } from 'firebase/app'
 import {
   collection,
   deleteDoc,
   doc,
   getDoc,
   getDocs,
+  getFirestore,
   query,
   setDoc,
   updateDoc,
@@ -13,12 +15,14 @@ import {
 } from 'firebase/firestore'
 import {
   createUserWithEmailAndPassword,
+  initializeAuth,
+  inMemoryPersistence,
   signInWithEmailAndPassword,
   sendPasswordResetEmail,
   signOut,
   deleteUser,
 } from 'firebase/auth'
-import { auth, db } from '../firebase/config'
+import { auth, db, firebaseConfig } from '../firebase/config'
 
 // Register a new student.
 // Order matters for security rules: we create the Auth account FIRST (which
@@ -199,4 +203,119 @@ export async function deleteStudent(student) {
 
   if (student.usn) await deleteDoc(doc(db, 'usns', student.usn))
   await deleteDoc(doc(db, 'students', student.id))
+}
+
+// ---- Bulk import ----------------------------------------------------------
+
+const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
+
+// Read a value from a spreadsheet row by any of its accepted header names
+// (case/space-insensitive), so admins aren't forced to use exact column names.
+function cell(row, aliases) {
+  for (const key of Object.keys(row)) {
+    if (aliases.includes(key.trim().toLowerCase())) {
+      const v = row[key]
+      return v == null ? '' : String(v).trim()
+    }
+  }
+  return ''
+}
+
+function normalizeImportRow(row, { defaultBatch, defaultPassword }) {
+  const usn = cell(row, ['usn', 'roll', 'roll no', 'roll number', 'usn / roll number']).toUpperCase()
+  return {
+    name: cell(row, ['name', 'full name', 'student name']),
+    usn,
+    email: cell(row, ['email', 'email id', 'mail']).toLowerCase(),
+    phone: cell(row, ['phone', 'phone number', 'mobile', 'contact']),
+    branch: cell(row, ['branch', 'department', 'dept']),
+    section: cell(row, ['section', 'sec']).toUpperCase(),
+    batch: cell(row, ['batch', 'batch year']) || defaultBatch || '',
+    password: cell(row, ['password', 'pwd']) || defaultPassword || usn,
+  }
+}
+
+function validateImportRow(r) {
+  if (!r.name) return 'name is required'
+  if (!/^[A-Za-z0-9]+$/.test(r.usn)) return 'invalid USN'
+  if (!EMAIL_RE.test(r.email)) return 'invalid email'
+  if (r.phone && !/^\d{10}$/.test(r.phone)) return 'phone must be 10 digits'
+  if ((r.password || '').length < 6) return 'password must be at least 6 characters'
+  return ''
+}
+
+const AUTH_ERR = {
+  'auth/email-already-in-use': 'email already registered',
+  'auth/invalid-email': 'invalid email',
+  'auth/weak-password': 'password too weak (min 6 characters)',
+}
+
+// Admin: create many student accounts from parsed spreadsheet rows.
+//
+// Auth accounts are created on a SECONDARY Firebase app so the admin stays
+// signed in on the primary app (createUserWithEmailAndPassword signs the new
+// user in on whichever app it runs on). Each profile is written via the
+// secondary app — i.e. signed in AS the new student — which satisfies the
+// "a student creates only their own profile" Firestore rule.
+//
+// Returns { total, created, failed, errors:[`<label>: <reason>`] }. Rows are
+// processed sequentially and one failure never aborts the rest.
+export async function bulkImportStudents(rows, { defaultBatch = '', defaultPassword = '', onProgress } = {}) {
+  const summary = { total: rows.length, created: 0, failed: 0, errors: [] }
+
+  const secApp = initializeApp(firebaseConfig, 'bulk-import')
+  // In-memory persistence keeps the new-user sign-ins off shared browser
+  // storage, so the admin's primary session is never touched.
+  const secAuth = initializeAuth(secApp, { persistence: inMemoryPersistence })
+  const secDb = getFirestore(secApp)
+
+  try {
+    for (let i = 0; i < rows.length; i++) {
+      const r = normalizeImportRow(rows[i], { defaultBatch, defaultPassword })
+      const label = r.usn || r.email || `row ${i + 2}`
+
+      const invalid = validateImportRow(r)
+      if (invalid) {
+        summary.failed++
+        summary.errors.push(`${label}: ${invalid}`)
+        onProgress?.(i + 1, rows.length)
+        continue
+      }
+
+      try {
+        const cred = await createUserWithEmailAndPassword(secAuth, r.email, r.password)
+        const uid = cred.user.uid
+        try {
+          const usnRef = doc(secDb, 'usns', r.usn)
+          if ((await getDoc(usnRef)).exists()) throw new Error('USN already registered')
+          await setDoc(doc(secDb, 'students', uid), {
+            name: r.name,
+            usn: r.usn,
+            email: r.email,
+            phone: r.phone,
+            branch: r.branch,
+            section: r.section,
+            batch: r.batch,
+            role: 'student',
+            createdAt: serverTimestamp(),
+          })
+          await setDoc(usnRef, { uid, usn: r.usn, createdAt: serverTimestamp() })
+          summary.created++
+        } catch (inner) {
+          // Roll back the half-created auth user so the email can be retried.
+          try { await deleteUser(cred.user) } catch (_) { /* ignore */ }
+          throw inner
+        }
+      } catch (e) {
+        summary.failed++
+        summary.errors.push(`${label}: ${AUTH_ERR[e.code] || e.message}`)
+      }
+      onProgress?.(i + 1, rows.length)
+    }
+  } finally {
+    try { await signOut(secAuth) } catch (_) { /* ignore */ }
+    await deleteApp(secApp)
+  }
+
+  return summary
 }

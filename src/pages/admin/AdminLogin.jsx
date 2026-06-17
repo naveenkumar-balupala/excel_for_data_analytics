@@ -4,6 +4,7 @@ import { signInWithEmailAndPassword, signOut } from 'firebase/auth'
 import { doc, getDoc } from 'firebase/firestore'
 import { auth, db } from '../../firebase/config'
 import Alert from '../../components/Alert'
+import Logo from '../../components/Logo'
 
 // Admin login verifies the user exists in the `admins` collection (role-based).
 // A regular student who logs in here is rejected and signed out.
@@ -40,6 +41,7 @@ export default function AdminLogin() {
 
   return (
     <div className="mx-auto max-w-md">
+      <div className="mb-6 flex justify-center"><Logo className="text-4xl" /></div>
       <div className="card border-t-4 border-t-slate-800">
         <h1 className="text-2xl font-bold text-slate-800">Admin Login</h1>
         <p className="mt-1 text-sm text-slate-500">Restricted access — administrators only.</p>

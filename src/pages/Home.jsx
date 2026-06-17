@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import Logo from '../components/Logo'
 
 export default function Home() {
   const { user, role } = useAuth()
@@ -7,8 +8,8 @@ export default function Home() {
   return (
     <div className="mx-auto max-w-4xl">
       <section className="rounded-2xl bg-gradient-to-br from-slate-900 to-slate-700 p-10 text-white shadow-lg">
-        <p className="text-sm font-semibold uppercase tracking-widest text-brand-light">Skill Sprint · TORII</p>
-        <h1 className="mt-2 text-3xl font-extrabold sm:text-4xl">Excel for Data Analytics</h1>
+        <Logo variant="light" className="text-5xl" />
+        <h1 className="mt-5 text-3xl font-extrabold sm:text-4xl">Excel for Data Analytics</h1>
         <p className="mt-3 max-w-2xl text-slate-300">
           Online assessment platform for Pre-Assessment, Day-wise Tests and the Grand Test.
           Register once, attempt each test a single time, and get instant topic-wise feedback.

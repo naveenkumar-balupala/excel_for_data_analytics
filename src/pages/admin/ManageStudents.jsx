@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { getAllStudents, deleteStudent, updateStudent, sendStudentPasswordReset } from '../../services/studentService'
+import { getAllStudents, deleteStudent, updateStudent, sendStudentPasswordReset, bulkImportStudents } from '../../services/studentService'
 import { getAllAttempts } from '../../services/attemptService'
 import { createBatch, deleteBatch, getAllBatches } from '../../services/batchService'
-import { exportToCSV, exportToExcel } from '../../utils/export'
+import { exportToCSV, exportToExcel, readSpreadsheet } from '../../utils/export'
 import Loader from '../../components/Loader'
 import Alert from '../../components/Alert'
 import ConfirmModal from '../../components/ConfirmModal'
@@ -23,6 +23,15 @@ export default function ManageStudents() {
   const [editTarget, setEditTarget] = useState(null) // student being edited
   const [editForm, setEditForm] = useState({ name: '', usn: '', email: '', phone: '', branch: '', section: '', batch: '' })
   const [savingEdit, setSavingEdit] = useState(false)
+
+  // ---- bulk import ----
+  const [importOpen, setImportOpen] = useState(false)
+  const [importFile, setImportFile] = useState(null)
+  const [importBatch, setImportBatch] = useState('')
+  const [importPassword, setImportPassword] = useState('')
+  const [importing, setImporting] = useState(false)
+  const [importProgress, setImportProgress] = useState({ done: 0, total: 0 })
+  const [importResult, setImportResult] = useState(null)
 
   const [search, setSearch] = useState('')
   const [branch, setBranch] = useState('All')
@@ -139,6 +148,48 @@ export default function ManageStudents() {
     }
   }
 
+  // ---- bulk import students ----
+  const downloadTemplate = () => {
+    exportToExcel(
+      [{ Name: 'Jane Doe', USN: '1XX21CS001', Email: 'jane@example.com', Phone: '9876543210', Branch: 'CSE', Section: 'A', Batch: batches[0]?.name || '2024-2027', Password: '' }],
+      'students-import-template.xlsx',
+      'Students',
+    )
+  }
+
+  const runImport = async () => {
+    if (!importFile) { setMsg({ type: 'error', text: 'Choose a CSV or Excel file first.' }); return }
+    setImporting(true)
+    setImportResult(null)
+    try {
+      const rows = await readSpreadsheet(importFile)
+      if (rows.length === 0) throw new Error('The file has no data rows.')
+      setImportProgress({ done: 0, total: rows.length })
+      const result = await bulkImportStudents(rows, {
+        defaultBatch: importBatch,
+        defaultPassword: importPassword.trim(),
+        onProgress: (done, total) => setImportProgress({ done, total }),
+      })
+      setImportResult(result)
+      setMsg({ type: result.failed ? 'info' : 'success', text: `Import complete: ${result.created} created, ${result.failed} failed.` })
+      load()
+    } catch (err) {
+      setMsg({ type: 'error', text: err.message })
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  const closeImport = () => {
+    if (importing) return
+    setImportOpen(false)
+    setImportFile(null)
+    setImportBatch('')
+    setImportPassword('')
+    setImportProgress({ done: 0, total: 0 })
+    setImportResult(null)
+  }
+
   // ---- reset password (sends a Firebase reset email to the student) ----
   const handleResetPassword = async (s) => {
     setMsg({ type: 'info', text: `Sending reset email to ${s.email}…` })
@@ -171,6 +222,7 @@ export default function ManageStudents() {
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-slate-800">Manage Students ({filtered.length})</h1>
         <div className="flex gap-2">
+          <button className="btn-secondary" onClick={() => setImportOpen(true)}>Bulk Import</button>
           <button className="btn-secondary" onClick={() => exportToCSV(rows, 'students.csv')}>Export CSV</button>
           <button className="btn-primary" onClick={() => exportToExcel(rows, 'students.xlsx', 'Students')}>Export Excel</button>
         </div>
@@ -270,6 +322,89 @@ export default function ManageStudents() {
         onConfirm={confirmDeleteBatch}
         onCancel={() => setDeleteBatchId(null)}
       />
+
+      {/* ---- Bulk import modal ---- */}
+      {importOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
+            <h3 className="text-lg font-semibold text-slate-800">Bulk Import Students</h3>
+            <p className="mt-1 text-xs text-slate-500">
+              Upload a CSV/Excel with columns: Name, USN, Email, Phone, Branch, Section, Batch, Password.
+              Each row creates a login account. Missing Batch/Password fall back to the defaults below.
+            </p>
+
+            <div className="mt-4 grid gap-3">
+              <div>
+                <button className="text-sm font-semibold text-brand hover:underline" onClick={downloadTemplate}>
+                  ↓ Download template
+                </button>
+              </div>
+              <div>
+                <label className="label">File (.csv or .xlsx)</label>
+                <input
+                  className="input"
+                  type="file"
+                  accept=".csv,.xlsx,.xls"
+                  disabled={importing}
+                  onChange={(e) => { setImportFile(e.target.files?.[0] || null); setImportResult(null) }}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label">Default Batch</label>
+                  {batches.length > 0 ? (
+                    <select className="input" value={importBatch} disabled={importing} onChange={(e) => setImportBatch(e.target.value)}>
+                      <option value="">— from file —</option>
+                      {batches.map((b) => <option key={b.id} value={b.name}>{b.name}</option>)}
+                    </select>
+                  ) : (
+                    <input className="input" value={importBatch} disabled={importing} onChange={(e) => setImportBatch(e.target.value)} placeholder="e.g. 2024-2027" />
+                  )}
+                </div>
+                <div>
+                  <label className="label">Default Password</label>
+                  <input className="input" value={importPassword} disabled={importing} onChange={(e) => setImportPassword(e.target.value)} placeholder="≥ 6 chars (else USN)" />
+                </div>
+              </div>
+              <p className="text-xs text-slate-400">
+                If Default Password is blank, each student's password is set to their USN (min 6 characters).
+                Students can reset it later from the login page.
+              </p>
+
+              {importing && (
+                <div>
+                  <div className="h-2 w-full overflow-hidden rounded bg-slate-100">
+                    <div className="h-full bg-brand transition-all" style={{ width: `${importProgress.total ? (importProgress.done / importProgress.total) * 100 : 0}%` }} />
+                  </div>
+                  <p className="mt-1 text-xs text-slate-500">Importing {importProgress.done}/{importProgress.total}…</p>
+                </div>
+              )}
+
+              {importResult && (
+                <div className="rounded-lg border border-slate-200 p-3 text-sm">
+                  <p className="font-semibold text-slate-800">
+                    {importResult.created} created · {importResult.failed} failed (of {importResult.total})
+                  </p>
+                  {importResult.errors.length > 0 && (
+                    <ul className="mt-2 max-h-40 list-disc overflow-y-auto pl-5 text-xs text-red-600">
+                      {importResult.errors.map((er, i) => <li key={i}>{er}</li>)}
+                    </ul>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button type="button" className="btn-secondary" onClick={closeImport} disabled={importing}>
+                {importResult ? 'Close' : 'Cancel'}
+              </button>
+              <button type="button" className="btn-primary" onClick={runImport} disabled={importing || !importFile}>
+                {importing ? 'Importing…' : 'Import'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ---- Edit student modal ---- */}
       {editTarget && (

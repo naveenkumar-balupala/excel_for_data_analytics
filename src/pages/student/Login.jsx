@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { loginStudent } from '../../services/studentService'
 import Alert from '../../components/Alert'
+import Logo from '../../components/Logo'
 
 export default function Login() {
   const navigate = useNavigate()
@@ -32,6 +33,7 @@ export default function Login() {
 
   return (
     <div className="mx-auto max-w-md">
+      <div className="mb-6 flex justify-center"><Logo className="text-4xl" /></div>
       <div className="card">
         <h1 className="text-2xl font-bold text-slate-800">Student Login</h1>
         <p className="mt-1 text-sm text-slate-500">Login to view and take your tests.</p>

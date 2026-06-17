@@ -25,3 +25,14 @@ export function exportToExcel(rows, filename = 'report.xlsx', sheetName = 'Resul
   XLSX.utils.book_append_sheet(wb, ws, sheetName)
   XLSX.writeFile(wb, filename)
 }
+
+// Read a CSV/XLSX file (from an <input type="file">) into an array of row
+// objects keyed by the header cells. Used by the bulk student import.
+export async function readSpreadsheet(file) {
+  const buf = await file.arrayBuffer()
+  const wb = XLSX.read(buf, { type: 'array' })
+  const ws = wb.Sheets[wb.SheetNames[0]]
+  if (!ws) return []
+  // defval:'' keeps empty cells as '' so column keys stay consistent per row.
+  return XLSX.utils.sheet_to_json(ws, { defval: '', raw: false })
+}

@@ -1,5 +1,6 @@
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import ToriiMark from './ToriiMark'
 
 export default function Navbar() {
   const { user, role, profile, logout } = useAuth()
@@ -29,9 +30,12 @@ export default function Navbar() {
     <header className="no-print sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3">
         <Link to="/" className="flex items-center gap-2">
-          <span className="rounded bg-brand px-2 py-1 text-sm font-extrabold text-white">SS</span>
-          <span className="hidden text-sm font-bold text-slate-800 sm:block">
-            Excel for Data Analytics
+          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-black">
+            <ToriiMark className="h-7 w-7" stem="#ffffff" />
+          </span>
+          <span className="hidden items-baseline gap-2 sm:flex">
+            <span className="text-lg font-extrabold tracking-tight text-slate-800">TORII</span>
+            <span className="text-xs font-medium text-slate-400">Excel for Data Analytics</span>
           </span>
         </Link>
 

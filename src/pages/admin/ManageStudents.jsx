@@ -21,7 +21,7 @@ export default function ManageStudents() {
   const [deleteBatchId, setDeleteBatchId] = useState(null)
   const [deleteTarget, setDeleteTarget] = useState(null) // student to delete
   const [editTarget, setEditTarget] = useState(null) // student being edited
-  const [editForm, setEditForm] = useState({ name: '', phone: '', branch: '', section: '', batch: '' })
+  const [editForm, setEditForm] = useState({ name: '', usn: '', email: '', phone: '', branch: '', section: '', batch: '' })
   const [savingEdit, setSavingEdit] = useState(false)
 
   const [search, setSearch] = useState('')
@@ -112,7 +112,7 @@ export default function ManageStudents() {
   const openEdit = (s) => {
     setEditTarget(s)
     setEditForm({
-      name: s.name || '', phone: s.phone || '',
+      name: s.name || '', usn: s.usn || '', email: s.email || '', phone: s.phone || '',
       branch: s.branch || 'CSE', section: s.section || 'A', batch: s.batch || '',
     })
   }
@@ -122,6 +122,8 @@ export default function ManageStudents() {
     try {
       await updateStudent(editTarget.id, {
         name: editForm.name.trim(),
+        usn: editForm.usn.trim().toUpperCase(),
+        email: editForm.email.trim().toLowerCase(),
         phone: editForm.phone.trim(),
         branch: editForm.branch,
         section: editForm.section,
@@ -275,12 +277,20 @@ export default function ManageStudents() {
           <form onSubmit={saveEdit} className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
             <h3 className="text-lg font-semibold text-slate-800">Edit Student</h3>
             <p className="mt-1 text-xs text-slate-500">{editTarget.usn} · {editTarget.email}</p>
-            <p className="mt-1 text-xs text-slate-400">USN and email can't be changed here.</p>
 
             <div className="mt-4 grid gap-3">
               <div>
                 <label className="label">Full Name</label>
                 <input className="input" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} />
+              </div>
+              <div>
+                <label className="label">USN</label>
+                <input className="input uppercase" value={editForm.usn} onChange={(e) => setEditForm({ ...editForm, usn: e.target.value })} />
+              </div>
+              <div>
+                <label className="label">Email</label>
+                <input className="input" type="email" value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} />
+                <p className="mt-1 text-xs text-amber-600">Updates records only — the student still logs in with their original email.</p>
               </div>
               <div>
                 <label className="label">Phone</label>

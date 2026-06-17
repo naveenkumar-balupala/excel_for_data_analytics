@@ -98,6 +98,34 @@ export async function getAllStudents() {
 // denormalized copies (name/branch/section/batch) stored on their attempts and
 // results so statistics and result tables reflect the change immediately.
 export async function updateStudent(id, data) {
+  // USN change: maintain the `usns/{USN}` uniqueness index (re-key it) and
+  // reject duplicates. USN is not denormalized onto attempts/results.
+  if ('usn' in data) {
+    const newUsn = (data.usn || '').trim().toUpperCase()
+    if (!newUsn) throw new Error('USN cannot be empty.')
+    const snap = await getDoc(doc(db, 'students', id))
+    const oldUsn = snap.exists() ? snap.data().usn : null
+    data = { ...data, usn: newUsn }
+    if (newUsn !== oldUsn) {
+      const newRef = doc(db, 'usns', newUsn)
+      const existing = await getDoc(newRef)
+      if (existing.exists() && existing.data().uid !== id) {
+        throw new Error('Another student already uses this USN.')
+      }
+      await setDoc(newRef, { uid: id, usn: newUsn, createdAt: serverTimestamp() })
+      if (oldUsn) {
+        try { await deleteDoc(doc(db, 'usns', oldUsn)) } catch (_) { /* ignore */ }
+      }
+    }
+  }
+
+  // Email change: this updates the Firestore record only. The Firebase Auth
+  // login email is NOT changed (that needs the server Admin SDK), so the
+  // student still signs in with their original email.
+  if ('email' in data) {
+    data = { ...data, email: (data.email || '').trim().toLowerCase() }
+  }
+
   await updateDoc(doc(db, 'students', id), data)
 
   const patch = {}

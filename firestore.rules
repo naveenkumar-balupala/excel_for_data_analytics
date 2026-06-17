@@ -38,7 +38,8 @@ service cloud.firestore {
     // registration without listing the private students collection.
     match /usns/{usn} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+      allow create: if isAdmin()
+        || (isSignedIn() && request.resource.data.uid == request.auth.uid);
       allow update, delete: if isAdmin();
     }
 

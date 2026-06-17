@@ -68,7 +68,9 @@ export default function AdminDashboard() {
               <XAxis dataKey="name" tick={{ fontSize: 10 }} interval={0} angle={-15} height={60} />
               <YAxis domain={[0, 100]} />
               <Tooltip />
-              <Bar dataKey="avgScore" fill="#ea580c" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="avgScore" fill="#ea580c" radius={[4, 4, 0, 0]}>
+                <LabelList dataKey="avgScore" position="top" formatter={(v) => `${v}%`} style={{ fontSize: 11, fontWeight: 600 }} />
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -84,6 +86,7 @@ export default function AdminDashboard() {
                 {topicWise.slice(0, 8).map((d, i) => (
                   <Cell key={i} fill={d.accuracy >= 50 ? '#16a34a' : '#dc2626'} />
                 ))}
+                <LabelList dataKey="accuracy" position="right" formatter={(v) => `${v}%`} style={{ fontSize: 11, fontWeight: 600 }} />
               </Bar>
             </BarChart>
           </ResponsiveContainer>

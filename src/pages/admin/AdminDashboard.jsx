@@ -52,13 +52,15 @@ export default function AdminDashboard() {
 
   return (
     <div>
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold text-slate-800">Admin Dashboard</h1>
-        <div className="flex flex-wrap items-center gap-2">
-          <label className="text-sm font-medium text-slate-500">Batch</label>
-          <select className="input max-w-[12rem]" value={batch} onChange={(e) => setBatch(e.target.value)}>
-            {batchOptions.map((b) => <option key={b}>{b}</option>)}
-          </select>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium text-slate-500">Batch</label>
+            <select className="input w-40" value={batch} onChange={(e) => setBatch(e.target.value)}>
+              {batchOptions.map((b) => <option key={b}>{b}</option>)}
+            </select>
+          </div>
           <Link to="/admin/statistics" className="btn-secondary">Full Statistics</Link>
           <Link to="/admin/export" className="btn-primary">Export Reports</Link>
         </div>

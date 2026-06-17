@@ -29,14 +29,15 @@ export function computeStats({ students = [], tests = [], attempts = [], results
 
   // ---- Test-wise performance ----
   const byTest = {}
-  for (const t of tests) byTest[t.id] = { name: t.testTitle, attempts: 0, totalPct: 0 }
+  for (const t of tests) byTest[t.id] = { name: t.testTitle, type: t.testType, day: t.dayNumber, attempts: 0, totalPct: 0 }
   for (const a of submitted) {
-    if (!byTest[a.testId]) byTest[a.testId] = { name: a.testTitle, attempts: 0, totalPct: 0 }
+    if (!byTest[a.testId]) byTest[a.testId] = { name: a.testTitle, type: a.testType, day: a.dayNumber, attempts: 0, totalPct: 0 }
     byTest[a.testId].attempts++
     byTest[a.testId].totalPct += a.percentage ?? 0
   }
   const testWise = Object.values(byTest)
     .filter((t) => t.attempts > 0 || tests.length <= 12)
+    .sort((a, b) => testSortKey(a) - testSortKey(b))
     .map((t) => ({
       name: t.name,
       attempts: t.attempts,
@@ -118,6 +119,14 @@ export async function buildDashboard() {
 
   const metrics = computeStats({ students, tests, attempts: submitted, results: liveResults })
   return { ...metrics, students, tests, attempts: submitted, results: liveResults }
+}
+
+// Logical test ordering for charts: Pre-Assessment, Day 1..N, then Grand Test.
+function testSortKey(t) {
+  if (t.type === 'Pre-Assessment') return 0
+  if (t.type === 'Grand Test') return 10000
+  if (t.type === 'Day-wise Test') return 100 + (t.day || 0)
+  return 5000 // any other type sits between day-wise and grand
 }
 
 function groupAvg(items, key) {

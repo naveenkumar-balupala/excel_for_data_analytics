@@ -69,7 +69,7 @@ export default function AdminDashboard() {
               <YAxis domain={[0, 100]} />
               <Tooltip />
               <Bar dataKey="avgScore" fill="#ea580c" radius={[4, 4, 0, 0]}>
-                <LabelList dataKey="avgScore" position="top" formatter={(v) => `${v}%`} style={{ fontSize: 11, fontWeight: 600 }} />
+                <LabelList dataKey="avgScore" position="top" formatter={(v) => `${v}%`} className="fill-slate-600" style={{ fontSize: 11, fontWeight: 600 }} />
               </Bar>
             </BarChart>
           </ResponsiveContainer>
@@ -86,7 +86,7 @@ export default function AdminDashboard() {
                 {topicWise.slice(0, 8).map((d, i) => (
                   <Cell key={i} fill={d.accuracy >= 50 ? '#16a34a' : '#dc2626'} />
                 ))}
-                <LabelList dataKey="accuracy" position="right" formatter={(v) => `${v}%`} style={{ fontSize: 11, fontWeight: 600 }} />
+                <LabelList dataKey="accuracy" position="right" formatter={(v) => `${v}%`} className="fill-slate-600" style={{ fontSize: 11, fontWeight: 600 }} />
               </Bar>
             </BarChart>
           </ResponsiveContainer>
@@ -101,10 +101,10 @@ export default function AdminDashboard() {
             <YAxis allowDecimals={false} />
             <Tooltip /><Legend />
             <Bar dataKey="students" name="Students" fill="#0ea5e9" radius={[4, 4, 0, 0]}>
-              <LabelList dataKey="students" position="top" style={{ fontSize: 11, fontWeight: 600 }} />
+              <LabelList dataKey="students" position="top" className="fill-slate-600" style={{ fontSize: 11, fontWeight: 600 }} />
             </Bar>
             <Bar dataKey="attempts" name="Attempts" fill="#ea580c" radius={[4, 4, 0, 0]}>
-              <LabelList dataKey="attempts" position="top" style={{ fontSize: 11, fontWeight: 600 }} />
+              <LabelList dataKey="attempts" position="top" className="fill-slate-600" style={{ fontSize: 11, fontWeight: 600 }} />
             </Bar>
           </BarChart>
         </ResponsiveContainer>

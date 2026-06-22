@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { getAllStudents, deleteStudent, updateStudent, sendStudentPasswordReset, bulkImportStudents } from '../../services/studentService'
 import { getAllAttempts } from '../../services/attemptService'
 import { createBatch, deleteBatch, getAllBatches } from '../../services/batchService'
+import { getSettings, updateSettings } from '../../services/settingsService'
 import { exportToCSV, exportToExcel, readSpreadsheet } from '../../utils/export'
 import Loader from '../../components/Loader'
 import Alert from '../../components/Alert'
@@ -14,6 +15,7 @@ export default function ManageStudents() {
   const [students, setStudents] = useState([])
   const [attempts, setAttempts] = useState([])
   const [batches, setBatches] = useState([])
+  const [settings, setSettings] = useState(null)
   const [loading, setLoading] = useState(true)
   const [msg, setMsg] = useState({ type: '', text: '' })
 
@@ -40,13 +42,26 @@ export default function ManageStudents() {
   const [sortDir, setSortDir] = useState('asc')
 
   const load = async () => {
-    const [s, a, b] = await Promise.all([getAllStudents(), getAllAttempts(), getAllBatches()])
+    const [s, a, b, cfg] = await Promise.all([getAllStudents(), getAllAttempts(), getAllBatches(), getSettings()])
     setStudents(s)
     setAttempts(a)
     setBatches(b)
+    setSettings(cfg)
     setLoading(false)
   }
   useEffect(() => { load() }, [])
+
+  const toggleSetting = async (key) => {
+    const next = !settings[key]
+    setSettings((s) => ({ ...s, [key]: next })) // optimistic
+    try {
+      await updateSettings({ [key]: next })
+      setMsg({ type: 'success', text: 'Setting updated.' })
+    } catch (err) {
+      setSettings((s) => ({ ...s, [key]: !next })) // revert
+      setMsg({ type: 'error', text: err.message })
+    }
+  }
 
   const attemptCount = useMemo(() => {
     const map = {}
@@ -226,6 +241,28 @@ export default function ManageStudents() {
       </div>
 
       {msg.text && <div className="mb-4"><Alert type={msg.type} onClose={() => setMsg({ type: '', text: '' })} autoCloseMs={msg.type === 'error' ? undefined : 5000}>{msg.text}</Alert></div>}
+
+      {/* ---- Student access settings ---- */}
+      {settings && (
+        <div className="card mb-4">
+          <h2 className="font-semibold text-slate-800">Student Access</h2>
+          <p className="text-xs text-slate-500">Control what students can do from the login &amp; registration pages.</p>
+          <div className="mt-3 space-y-2">
+            <SettingToggle
+              label="Student self-registration"
+              hint="When off, the public Register page is closed — only bulk import / admin can add students."
+              on={settings.registrationOpen}
+              onToggle={() => toggleSetting('registrationOpen')}
+            />
+            <SettingToggle
+              label="Forgot password (student login)"
+              hint="When off, the “Forgot password?” option is hidden on the student login page."
+              on={settings.forgotPasswordEnabled}
+              onToggle={() => toggleSetting('forgotPasswordEnabled')}
+            />
+          </div>
+        </div>
+      )}
 
       {/* ---- Batch management ---- */}
       <div className="card mb-4">
@@ -480,6 +517,28 @@ export default function ManageStudents() {
           </form>
         </div>
       )}
+    </div>
+  )
+}
+
+// A labelled on/off switch row used by the Student Access settings.
+function SettingToggle({ label, hint, on, onToggle }) {
+  return (
+    <div className="flex items-start justify-between gap-4 rounded-lg border border-slate-200 p-3">
+      <div>
+        <p className="text-sm font-medium text-slate-800">{label}</p>
+        <p className="text-xs text-slate-500">{hint}</p>
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={on}
+        aria-label={label}
+        onClick={onToggle}
+        className={`relative mt-0.5 h-6 w-11 shrink-0 rounded-full transition ${on ? 'bg-brand' : 'bg-slate-300'}`}
+      >
+        <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${on ? 'left-[1.375rem]' : 'left-0.5'}`} />
+      </button>
     </div>
   )
 }

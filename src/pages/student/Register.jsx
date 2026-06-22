@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { registerStudent } from '../../services/studentService'
 import { getAllBatches } from '../../services/batchService'
+import { getSettings } from '../../services/settingsService'
 import Alert from '../../components/Alert'
+import Loader from '../../components/Loader'
 
 const BRANCHES = ['CSE', 'ISE', 'ECE', 'EEE', 'MECH', 'CIVIL', 'AIML', 'BCA', 'MCA', 'MBA', 'Other']
 const SECTIONS = ['A', 'B', 'C', 'D']
@@ -16,12 +18,16 @@ export default function Register() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(false)
+  const [regOpen, setRegOpen] = useState(null) // null = still loading the setting
 
   // Load the admin-defined batch list. Students may ONLY pick from these.
   useEffect(() => {
     getAllBatches()
       .then((b) => setBatches(b))
       .catch(() => setBatches([]))
+    getSettings()
+      .then((cfg) => setRegOpen(cfg.registrationOpen))
+      .catch(() => setRegOpen(true))
   }, [])
 
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value })
@@ -61,6 +67,20 @@ export default function Register() {
       setLoading(false)
     }
   }
+
+  if (regOpen === null) return <Loader message="Loading…" />
+
+  if (regOpen === false)
+    return (
+      <div className="mx-auto max-w-xl card text-center">
+        <h1 className="text-2xl font-bold text-slate-800">Registration Closed</h1>
+        <p className="mt-2 text-sm text-slate-500">
+          Student self-registration is currently turned off. Please contact your admin to get an account,
+          then sign in.
+        </p>
+        <Link to="/login" className="btn-primary mt-5">Go to Login</Link>
+      </div>
+    )
 
   return (
     <div className="mx-auto max-w-xl">

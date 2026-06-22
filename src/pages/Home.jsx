@@ -1,9 +1,16 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { getSettings } from '../services/settingsService'
 import Logo from '../components/Logo'
 
 export default function Home() {
   const { user, role } = useAuth()
+  const [registrationOpen, setRegistrationOpen] = useState(true)
+
+  useEffect(() => {
+    getSettings().then((c) => setRegistrationOpen(c.registrationOpen)).catch(() => {})
+  }, [])
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -21,8 +28,8 @@ export default function Home() {
             </Link>
           ) : (
             <>
-              <Link to="/register" className="btn-primary">Register</Link>
-              <Link to="/login" className="btn-secondary">Student Login</Link>
+              {registrationOpen && <Link to="/register" className="btn-primary">Register</Link>}
+              <Link to="/login" className={registrationOpen ? 'btn-secondary' : 'btn-primary'}>Student Login</Link>
               <Link to="/admin/login" className="btn-secondary">Admin Login</Link>
             </>
           )}

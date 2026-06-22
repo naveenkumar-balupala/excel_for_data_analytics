@@ -43,6 +43,14 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
+    // ---- settings ----  (single app-config doc, id = "app")
+    // Public read so the login/register pages can honor the toggles before
+    // sign-in; only an admin can change them.
+    match /settings/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     // ---- questions ----
     // Any signed-in user may read questions (the client grades the test).
     // NOTE: Firestore rules cannot strip the `correctAnswer` field, so a
